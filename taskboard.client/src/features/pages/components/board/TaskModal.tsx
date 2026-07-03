@@ -110,11 +110,11 @@ const TaskModal = ({
           <div>期限</div>
           <input
             type="date"
-            value={formatDate(draftTask.Deadline)}
+            value={formatDate(draftTask.deadline)}
             onChange={(e) =>
               setDraftTask((prev) => ({
                 ...prev,
-                Deadline: new Date(e.target.value),
+                deadline: new Date(e.target.value),
               }))
             }
             className="border bg-white rounded w-50 px-2"

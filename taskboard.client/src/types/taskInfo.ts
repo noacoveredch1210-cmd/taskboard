@@ -3,7 +3,7 @@ export type TaskInfo = {
   name: string;
   comment: string;
   importance: number;
-  Deadline?: Date;
+  deadline?: Date;
   // 未設定は空文字 ""
   categoryId: string;
   // 所属する position の id

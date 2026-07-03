@@ -74,7 +74,7 @@ const TaskCardContent = ({
           {task.name}
         </div>
         <div className="text-gray-400 text-sm">
-          {task.Deadline?.toLocaleDateString("ja-JP", {
+          {task.deadline?.toLocaleDateString("ja-JP", {
             year: "numeric",
             month: "numeric",
             day: "2-digit",

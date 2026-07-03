@@ -91,7 +91,7 @@ const BoardPage = ({
     switch (filterType) {
       case "deadline": {
         // 選択日「まで」(その日以前)の期限を持つタスク。期限未設定は除外
-        const d = t.Deadline?.toISOString().split("T")[0];
+        const d = t.deadline?.toISOString().split("T")[0];
         return d !== undefined && d <= filterValue;
       }
       case "importance":
@@ -133,8 +133,8 @@ const BoardPage = ({
     switch (sortKey) {
       case "deadline-asc":
       case "deadline-desc": {
-        const da = a.Deadline?.getTime();
-        const db = b.Deadline?.getTime();
+        const da = a.deadline?.getTime();
+        const db = b.deadline?.getTime();
         // 期限未設定は常に末尾へ
         if (da === undefined && db === undefined) return 0;
         if (da === undefined) return 1;

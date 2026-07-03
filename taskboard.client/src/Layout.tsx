@@ -36,7 +36,7 @@ const Layout = () => {
           name: "会議",
           comment: "あああ",
           importance: 2,
-          Deadline: new Date(2026, 6, 6),
+          deadline: new Date(2026, 6, 6),
           categoryId: SEED_CAT_SHANAI,
           positionId: SEED_B1_POS_TODO,
         },
