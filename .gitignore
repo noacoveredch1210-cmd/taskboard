@@ -1,0 +1,23 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# .NET
+TaskBoard.Server/bin/
+TaskBoard.Server/obj/
+**/bin/
+**/obj/
+
+# Node
+taskboard.client/node_modules/
+taskboard.client/dist/
+taskboard.client/build/
+
+# 環境変数
+**/.env
+**/.env.local
+**/appsettings.Development.json
+
+# OS
+.DS_Store

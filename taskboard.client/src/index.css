@@ -1,0 +1,33 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-primary: #4F7C7E;
+  --color-primary-hover:#477071;
+  --color-primary-light: #dce5e5;
+  --color-primary-button:#b9cbcb;
+  --color-primary-button-hover:#a7bebf;
+  --color-importance-low:#FFD166;
+  --color-importance-medium:#FF8C42;
+  --color-importance-high:#E63946;
+  --color-bg-base:#EFEFEF;
+}
+
+@utility dialog-base {
+  @apply z-20 rounded focus:ring-0 focus:outline-none;
+}
+
+@utility dialog-modal {
+  @apply dialog-base m-auto backdrop:bg-black/50;
+}
+
+@utility btn-base {
+  @apply flex cursor-pointer items-center justify-center rounded py-1 font-medium;
+}
+
+@utility btn-yes {
+  @apply btn-base bg-primary-button px-5 hover:bg-primary-button-hover;
+}
+
+@utility btn-no {
+  @apply btn-base bg-gray-200 px-5 hover:bg-gray-300;
+}
