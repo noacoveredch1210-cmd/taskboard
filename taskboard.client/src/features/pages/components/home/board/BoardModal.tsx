@@ -36,9 +36,9 @@ const BoardModal = ({ onClose, board, onSetBoard, onCreateBoard }: Props) => {
   const [draftShortName, setDraftShortName] = useState(board?.shortName ?? "");
   const [draftPositions, setDraftPositions] = useState<Position[]>(
     board?.positions ?? [
-      { id: crypto.randomUUID(), positionName: "未処理" },
-      { id: crypto.randomUUID(), positionName: "処理中" },
-      { id: crypto.randomUUID(), positionName: "完了" },
+      { id: crypto.randomUUID(), name: "未処理" },
+      { id: crypto.randomUUID(), name: "処理中" },
+      { id: crypto.randomUUID(), name: "完了" },
     ],
   );
   const [draftPositionName, setDraftPositionName] = useState("");
@@ -65,7 +65,7 @@ const BoardModal = ({ onClose, board, onSetBoard, onCreateBoard }: Props) => {
     if (e.key === "Enter" && draftPositionName.trim()) {
       setDraftPositions((prev) => [
         ...prev,
-        { id: crypto.randomUUID(), positionName: draftPositionName },
+        { id: crypto.randomUUID(), name: draftPositionName },
       ]);
       setDraftPositionName("");
     }

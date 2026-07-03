@@ -37,7 +37,7 @@ const PositionCard = ({ position, onDeletePosition }: Props) => {
       >
         drag_indicator
       </span>
-      <span>{position.positionName}</span>
+      <span>{position.name}</span>
       <button onClick={() => onDeletePosition(position.id)}>
         <span className="material-symbols-outlined text-sm!">close</span>
       </button>

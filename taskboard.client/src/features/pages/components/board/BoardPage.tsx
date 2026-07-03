@@ -339,7 +339,7 @@ const BoardPage = ({
               key={position.id}
               boardInfo={boardInfo}
               columnId={`${COLUMN_PREFIX}${position.id}`}
-              positionName={position.positionName}
+              positionName={position.name}
               positionIdx={idx}
               taskLength={grouped?.[position.id]?.length ?? 0}
               isLastColumn={idx === boardInfo.positions.length - 1}

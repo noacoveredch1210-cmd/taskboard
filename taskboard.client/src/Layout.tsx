@@ -26,9 +26,9 @@ const Layout = () => {
       shortName: "board 1",
       title: "業務タスクboard 1",
       positions: [
-        { id: SEED_B1_POS_TODO, positionName: "未処理" },
-        { id: SEED_B1_POS_DOING, positionName: "処理中" },
-        { id: SEED_B1_POS_DONE, positionName: "完了" },
+        { id: SEED_B1_POS_TODO, name: "未処理" },
+        { id: SEED_B1_POS_DOING, name: "処理中" },
+        { id: SEED_B1_POS_DONE, name: "完了" },
       ],
       tasks: [
         {
@@ -55,8 +55,8 @@ const Layout = () => {
       shortName: "board 2",
       title: "業務タスクboard 2",
       positions: [
-        { id: crypto.randomUUID(), positionName: "未処理" },
-        { id: crypto.randomUUID(), positionName: "完了" },
+        { id: crypto.randomUUID(), name: "未処理" },
+        { id: crypto.randomUUID(), name: "完了" },
       ],
       tasks: [],
     },

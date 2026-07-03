@@ -23,9 +23,7 @@ const BoardCard = ({
     <div className="flex gap-2 items-center">
       <button
         onClick={() =>
-          isSelectMode
-            ? onToggleSelect(boardInfo.id)
-            : setOpenCustomModal(true)
+          isSelectMode ? onToggleSelect(boardInfo.id) : setOpenCustomModal(true)
         }
         className="w-full grid bg-primary-button rounded border grid-cols-10 hover:bg-primary-button-hover"
       >
@@ -37,7 +35,7 @@ const BoardCard = ({
         </div>
         <div className="flex items-center col-span-4 px-2 h-8 min-w-0">
           <span className="truncate">
-            {boardInfo.positions.map((p) => p.positionName).join(" / ")}
+            {boardInfo.positions.map((p) => p.name).join(" / ")}
           </span>
         </div>
       </button>
