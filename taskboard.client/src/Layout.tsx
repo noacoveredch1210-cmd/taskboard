@@ -180,7 +180,7 @@ const Layout = () => {
   // #endretion
 
   const userInfo: UserInfo = {
-    userName: "山田花子",
+    name: "山田花子",
     email: "hanako@example.com",
   };
 
