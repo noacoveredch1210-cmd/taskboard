@@ -21,3 +21,4 @@ taskboard.client/build/
 
 # OS
 .DS_Store
+/TaskBoard.Server/Properties/launchSettings.json

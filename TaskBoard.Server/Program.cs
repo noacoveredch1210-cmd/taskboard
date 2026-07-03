@@ -1,11 +1,16 @@
-using System.Data;
 using Npgsql;
+using System.Data;
+using TaskBoard.Server.Data;
+
+Dapper.SqlMapper.AddTypeHandler(new DateOnlyTypeHandler());
+Dapper.SqlMapper.AddTypeHandler(new NullableDateOnlyTypeHandler());
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers();
-builder.Services.AddOpenApi();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend", policy =>
@@ -17,14 +22,35 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader()));
 
 builder.Services.AddScoped<IDbConnection>(_ =>
-    new NpgsqlConnection(Environment.GetEnvironmentVariable("DATABASE_URL")));
+{
+    var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL")
+        ?? throw new InvalidOperationException("DATABASE_URL is not set.");
+
+    var uri = new Uri(databaseUrl);
+    var userInfo = uri.UserInfo.Split(':');
+
+    var connectionString = new NpgsqlConnectionStringBuilder
+    {
+        Host = uri.Host,
+        Port = uri.Port,
+        Username = userInfo[0],
+        Password = Uri.UnescapeDataString(userInfo[1]),
+        Database = uri.AbsolutePath.TrimStart('/'),
+        SslMode = SslMode.Require
+    }.ToString();
+
+    return new NpgsqlConnection(connectionString);
+});
+
+builder.Services.AddScoped<ITaskRepository, TaskRepository>();
 
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 
 app.UseCors("AllowFrontend");
