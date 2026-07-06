@@ -1,36 +1,33 @@
-﻿using System.Data;
+using System.Data;
 using Dapper;
 using TaskBoard.Server.Models;
 
 namespace TaskBoard.Server.Data
 {
-    public class UserRepository : IUserRepository
+    public class UserRepository : RepositoryBase, IUserRepository
     {
-        private readonly IDbConnection _connection;
+        private const string Columns = "id, name, email, created_at AS CreatedAt";
 
-        public UserRepository(IDbConnection connection)
-        {
-            _connection = connection;
-        }
+        public UserRepository(IDbConnection connection) : base(connection) { }
 
         public async Task<User?> GetByIdAsync(Guid id)
         {
-            const string sql = """
-            SELECT id, name, email, created_at AS CreatedAt
+            var sql = $"""
+            SELECT {Columns}
             FROM users
             WHERE id = @Id
             """;
-            return await _connection.QuerySingleOrDefaultAsync<User>(sql, new { Id = id });
+            return await Connection.QuerySingleOrDefaultAsync<User>(sql, new { Id = id });
         }
 
         public async Task<User?> GetByEmailAsync(string email)
         {
-            const string sql = """
-            SELECT id, name, email, created_at AS CreatedAt
+            var sql = $"""
+            SELECT {Columns}
             FROM users
             WHERE email = @Email
             """;
-            return await _connection.QuerySingleOrDefaultAsync<User>(sql, new { Email = email });
+            return await Connection.QuerySingleOrDefaultAsync<User>(sql, new { Email = email });
         }
 
         public async Task CreateAsync(CreateUserRequest request)
@@ -39,7 +36,7 @@ namespace TaskBoard.Server.Data
             INSERT INTO users (id, name, email)
             VALUES (@Id, @Name, @Email)
             """;
-            await _connection.ExecuteAsync(sql, request);
+            await Connection.ExecuteAsync(sql, request);
         }
 
         public async Task<bool> UpdateAsync(Guid id, UpdateUserRequest request)
@@ -50,7 +47,7 @@ namespace TaskBoard.Server.Data
                 email = @Email
             WHERE id = @Id
             """;
-            var affectedRows = await _connection.ExecuteAsync(sql, new
+            var affectedRows = await Connection.ExecuteAsync(sql, new
             {
                 Id = id,
                 request.Name,
@@ -59,11 +56,6 @@ namespace TaskBoard.Server.Data
             return affectedRows > 0;
         }
 
-        public async Task<bool> DeleteAsync(Guid id)
-        {
-            const string sql = "DELETE FROM users WHERE id = @Id";
-            var affectedRows = await _connection.ExecuteAsync(sql, new { Id = id });
-            return affectedRows > 0;
-        }
+        public Task<bool> DeleteAsync(Guid id) => DeleteByIdAsync("users", id);
     }
 }
