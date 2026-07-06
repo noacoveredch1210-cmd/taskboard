@@ -1,4 +1,5 @@
 import { api, toQuery } from "./client";
+import { createResource } from "./resource";
 import type {
   TaskDto,
   CreateTaskRequest,
@@ -6,16 +7,8 @@ import type {
 } from "./types";
 
 export const tasksApi = {
+  ...createResource<TaskDto, CreateTaskRequest, UpdateTaskRequest>("/tasks"),
+
   getByBoard: (boardId: string) =>
     api.get<TaskDto[]>(`/tasks${toQuery({ boardId })}`),
-
-  getById: (id: string) => api.get<TaskDto>(`/tasks/${id}`),
-
-  create: (request: CreateTaskRequest) =>
-    api.post<TaskDto>("/tasks", request),
-
-  update: (id: string, request: UpdateTaskRequest) =>
-    api.put<void>(`/tasks/${id}`, request),
-
-  remove: (id: string) => api.delete<void>(`/tasks/${id}`),
 };

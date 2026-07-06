@@ -1,4 +1,5 @@
 import { api, toQuery } from "./client";
+import { createResource } from "./resource";
 import type {
   PositionDto,
   CreatePositionRequest,
@@ -6,16 +7,10 @@ import type {
 } from "./types";
 
 export const positionsApi = {
+  ...createResource<PositionDto, CreatePositionRequest, UpdatePositionRequest>(
+    "/positions",
+  ),
+
   getByBoard: (boardId: string) =>
     api.get<PositionDto[]>(`/positions${toQuery({ boardId })}`),
-
-  getById: (id: string) => api.get<PositionDto>(`/positions/${id}`),
-
-  create: (request: CreatePositionRequest) =>
-    api.post<PositionDto>("/positions", request),
-
-  update: (id: string, request: UpdatePositionRequest) =>
-    api.put<void>(`/positions/${id}`, request),
-
-  remove: (id: string) => api.delete<void>(`/positions/${id}`),
 };

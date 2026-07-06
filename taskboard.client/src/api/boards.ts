@@ -1,4 +1,5 @@
 import { api, toQuery } from "./client";
+import { createResource } from "./resource";
 import type {
   BoardDto,
   CreateBoardRequest,
@@ -6,16 +7,8 @@ import type {
 } from "./types";
 
 export const boardsApi = {
+  ...createResource<BoardDto, CreateBoardRequest, UpdateBoardRequest>("/boards"),
+
   getByUser: (userId: string) =>
     api.get<BoardDto[]>(`/boards${toQuery({ userId })}`),
-
-  getById: (id: string) => api.get<BoardDto>(`/boards/${id}`),
-
-  create: (request: CreateBoardRequest) =>
-    api.post<BoardDto>("/boards", request),
-
-  update: (id: string, request: UpdateBoardRequest) =>
-    api.put<void>(`/boards/${id}`, request),
-
-  remove: (id: string) => api.delete<void>(`/boards/${id}`),
 };
