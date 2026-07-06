@@ -1,4 +1,4 @@
-import { api, toQuery } from "./client";
+import { api } from "./client";
 import { createResource } from "./resource";
 import type {
   BoardDto,
@@ -9,6 +9,6 @@ import type {
 export const boardsApi = {
   ...createResource<BoardDto, CreateBoardRequest, UpdateBoardRequest>("/boards"),
 
-  getByUser: (userId: string) =>
-    api.get<BoardDto[]>(`/boards${toQuery({ userId })}`),
+  /** 認証ユーザー自身の board 一覧（対象ユーザーはサーバーがトークンから決定する）。 */
+  getMine: () => api.get<BoardDto[]>("/boards"),
 };

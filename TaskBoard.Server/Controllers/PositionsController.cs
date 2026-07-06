@@ -4,9 +4,8 @@ using TaskBoard.Server.Models;
 
 namespace TaskBoard.Server.Controllers
 {
-    [ApiController]
     [Route("api/[controller]")]
-    public class PositionsController : ControllerBase
+    public class PositionsController : AuthorizedControllerBase
     {
         private readonly IPositionRepository _repository;
 

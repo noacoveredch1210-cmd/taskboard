@@ -39,6 +39,16 @@ namespace TaskBoard.Server.Data
             await Connection.ExecuteAsync(sql, request);
         }
 
+        public async Task EnsureAsync(Guid id, string name, string email)
+        {
+            const string sql = """
+            INSERT INTO users (id, name, email)
+            VALUES (@Id, @Name, @Email)
+            ON CONFLICT (id) DO NOTHING
+            """;
+            await Connection.ExecuteAsync(sql, new { Id = id, Name = name, Email = email });
+        }
+
         public async Task<bool> UpdateAsync(Guid id, UpdateUserRequest request)
         {
             const string sql = """

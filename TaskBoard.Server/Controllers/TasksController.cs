@@ -4,9 +4,8 @@ using TaskBoard.Server.Models;
 
 namespace TaskBoard.Server.Controllers
 {
-    [ApiController]
     [Route("api/[controller]")]
-    public class TasksController : ControllerBase
+    public class TasksController : AuthorizedControllerBase
     {
         private readonly ITaskRepository _repository;
 

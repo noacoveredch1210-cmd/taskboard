@@ -8,14 +8,14 @@ import type { Category } from "../types/category";
  * カテゴリーの状態管理と API 連携をまとめたフック。
  * すべてオプティミスティック更新（即 state 反映 → API 送信 → 失敗はログ）。
  */
-export const useCategories = (userId: string) => {
+export const useCategories = () => {
   const [categories, setCategories] = useState<Category[]>([]);
 
   useEffect(() => {
-    loadCategories(userId)
+    loadCategories()
       .then(setCategories)
       .catch(reportError("カテゴリーの取得に失敗しました"));
-  }, [userId]);
+  }, []);
 
   const setCategory = (categoryId: string, updates: Partial<Category>) => {
     const current = categories.find((c) => c.id === categoryId);
@@ -34,7 +34,7 @@ export const useCategories = (userId: string) => {
     const id = crypto.randomUUID();
     setCategories((prev) => [...prev, { id, name, color }]);
     categoriesApi
-      .create({ id, userId, name, color })
+      .create({ id, name, color })
       .catch(reportError("カテゴリーの作成に失敗しました"));
   };
 

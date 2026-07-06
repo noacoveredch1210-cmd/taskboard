@@ -4,9 +4,8 @@ using TaskBoard.Server.Models;
 
 namespace TaskBoard.Server.Controllers
 {
-    [ApiController]
     [Route("api/[controller]")]
-    public class BoardsController : ControllerBase
+    public class BoardsController : AuthorizedControllerBase
     {
         private readonly IBoardRepository _repository;
 
@@ -15,11 +14,11 @@ namespace TaskBoard.Server.Controllers
             _repository = repository;
         }
 
-        // GET /api/boards?userId=xxx
+        // GET /api/boards （認証ユーザー自身の board 一覧）
         [HttpGet]
-        public async Task<IActionResult> GetByUser([FromQuery] Guid userId)
+        public async Task<IActionResult> GetMine()
         {
-            var boards = await _repository.GetByUserIdAsync(userId);
+            var boards = await _repository.GetByUserIdAsync(CurrentUserId);
             return Ok(boards);
         }
 
@@ -36,6 +35,8 @@ namespace TaskBoard.Server.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateBoardRequest request)
         {
+            // 所有者は必ずトークンのユーザーに固定する（body の値は信用しない）。
+            request.UserId = CurrentUserId;
             await _repository.CreateAsync(request);
             var created = await _repository.GetByIdAsync(request.Id);
             return CreatedAtAction(nameof(GetById), new { id = request.Id }, created);

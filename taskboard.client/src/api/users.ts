@@ -1,14 +1,10 @@
-import { api, toQuery } from "./client";
-import { createResource } from "./resource";
-import type {
-  UserDto,
-  CreateUserRequest,
-  UpdateUserRequest,
-} from "./types";
+import { api } from "./client";
+import type { UserDto, UpdateUserRequest } from "./types";
 
 export const usersApi = {
-  ...createResource<UserDto, CreateUserRequest, UpdateUserRequest>("/users"),
+  /** 認証ユーザー自身の情報を取得（初回は DB へ登録される）。 */
+  getMe: () => api.get<UserDto>("/users/me"),
 
-  getByEmail: (email: string) =>
-    api.get<UserDto>(`/users/by-email${toQuery({ email })}`),
+  updateMe: (request: UpdateUserRequest) =>
+    api.put<void>("/users/me", request),
 };

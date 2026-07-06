@@ -26,6 +26,7 @@ const BoardView = ({
     title="board 管理"
     items={boards}
     onDelete={onDeleteBoards}
+    emptyHint="board を追加"
     renderItem={(board, ctx) => (
       <BoardCard boardInfo={board} onSetBoard={onSetBoard} {...ctx} />
     )}

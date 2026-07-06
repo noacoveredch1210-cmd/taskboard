@@ -16,15 +16,18 @@ import type { Position } from "../types/position";
  * board / task / position の状態管理と API 連携をまとめたフック。
  * すべてオプティミスティック更新（即 state 反映 → API 送信 → 失敗はログ）。
  */
-export const useBoards = (userId: string) => {
+export const useBoards = () => {
   const [boards, setBoards] = useState<BoardInfo[]>([]);
+  // 初回ロード完了フラグ（空配列の初期状態と「ロード後に本当に0件」を区別する）
+  const [loaded, setLoaded] = useState(false);
 
   // マウント時に API から board 一覧を取得する
   useEffect(() => {
-    loadBoards(userId)
+    loadBoards()
       .then(setBoards)
-      .catch(reportError("boardの取得に失敗しました"));
-  }, [userId]);
+      .catch(reportError("boardの取得に失敗しました"))
+      .finally(() => setLoaded(true));
+  }, []);
 
   // #region タスクの保存(idが既存なら更新[PUT]、無ければ追加[POST])
   const saveTask = (boardId: string, task: TaskInfo) => {
@@ -155,7 +158,7 @@ export const useBoards = (userId: string) => {
     ]);
 
     boardsApi
-      .create({ id: boardId, userId, shortName, title })
+      .create({ id: boardId, shortName, title })
       .then(() =>
         Promise.all(
           positions.map((p, index) =>
@@ -282,6 +285,7 @@ export const useBoards = (userId: string) => {
 
   return {
     boards,
+    loaded,
     saveTask,
     setBoard,
     createBoard,

@@ -22,6 +22,8 @@ type Props<T extends Identifiable> = {
   renderCreateModal: (close: () => void) => ReactNode;
   // 削除確認モーダル。確定(削除実行)関数と閉じる関数を渡す
   renderConfirmModal: (onConfirm: () => void, close: () => void) => ReactNode;
+  // 0件のとき + ボタンの横に常時表示する案内ラベル（未指定なら表示しない）
+  emptyHint?: string;
 };
 
 // board / category など「一覧＋選択削除＋作成」を共通化した汎用ビュー
@@ -32,6 +34,7 @@ const View = <T extends Identifiable>({
   renderItem,
   renderCreateModal,
   renderConfirmModal,
+  emptyHint,
 }: Props<T>) => {
   const [openModal, setOpenModal] = useState<null | "confirm" | "create">(null);
   const [isSelectMode, setIsSelectMode] = useState(false);
@@ -98,7 +101,21 @@ const View = <T extends Identifiable>({
           onDelete={() => setOpenModal("confirm")}
         />
       ) : (
-        <CreateButton onOpenModal={() => setOpenModal("create")} />
+        <>
+          {items.length === 0 && emptyHint && (
+            <button
+              type="button"
+              onClick={() => setOpenModal("create")}
+              className="absolute bottom-2 right-12 h-8 flex items-center gap-1 whitespace-nowrap text-sm font-medium text-primary animate-bounce cursor-pointer"
+            >
+              <span>{emptyHint}</span>
+              <span className="material-symbols-outlined text-lg!">
+                arrow_forward
+              </span>
+            </button>
+          )}
+          <CreateButton onOpenModal={() => setOpenModal("create")} />
+        </>
       )}
       {openModal === "create" && renderCreateModal(() => setOpenModal(null))}
       {openModal === "confirm" &&

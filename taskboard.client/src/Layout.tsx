@@ -1,20 +1,19 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Header from "./features/header/index.tsx";
 import Sidebar from "./features/sidebar/index.tsx";
 import Pages from "./features/pages/index.tsx";
 import AI from "./features/AI/index.tsx";
+import BoardModal from "./features/pages/components/home/board/BoardModal.tsx";
 import { useBoards } from "./hooks/useBoards.ts";
 import { useCategories } from "./hooks/useCategories.ts";
 import { useUser } from "./hooks/useUser.ts";
 
-// 取得対象ユーザーの ID（テスト用に固定。実運用では認証結果などから決定する）
-// TODO: DB に存在する実ユーザーの GUID に置き換える
-const CURRENT_USER_ID = "3afa0a01-8a0b-45b4-a4d6-e61a654d1c48";
-
 const Layout = () => {
-  // データ取得・更新はフックに委譲(いずれもオプティミスティック更新)
+  // データ取得・更新はフックに委譲(いずれもオプティミスティック更新)。
+  // 対象ユーザーは API 側で認証トークン(JWT)から決定されるため ID は渡さない。
   const {
     boards,
+    loaded,
     saveTask,
     setBoard,
     createBoard,
@@ -22,15 +21,25 @@ const Layout = () => {
     reorderTasks,
     commitTaskMove,
     deleteTasks,
-  } = useBoards(CURRENT_USER_ID);
+  } = useBoards();
   const { categories, setCategory, createCategory, deleteCategories } =
-    useCategories(CURRENT_USER_ID);
-  const userInfo = useUser(CURRENT_USER_ID);
+    useCategories();
+  const userInfo = useUser();
 
   // 初期表示はホーム画面（データ取得完了前に board を参照して落ちるのを防ぐ）
   const [openingPageIndex, setOpeningPageIndex] = useState<number | null>(null);
   const [openSidebar, setOpenSidebar] = useState(true);
   const [openAIWindow, setOpenAIWindow] = useState(false);
+
+  // board が1件も無いユーザー向けに、初回ロード完了時だけ board 追加モーダルを自動表示する。
+  const [showFirstBoardModal, setShowFirstBoardModal] = useState(false);
+  const promptedFirstBoard = useRef(false);
+  useEffect(() => {
+    if (!promptedFirstBoard.current && loaded && boards.length === 0) {
+      promptedFirstBoard.current = true;
+      setShowFirstBoardModal(true);
+    }
+  }, [loaded, boards.length]);
 
   // AIウィンドウを開くときはサイドバーを閉じる
   const toggleAIWindow = () => {
@@ -82,6 +91,12 @@ const Layout = () => {
       <div className={openAIWindow ? "w-70" : "w-10"}>
         <AI isOpen={openAIWindow} toggleAIWindow={toggleAIWindow} />
       </div>
+      {showFirstBoardModal && (
+        <BoardModal
+          onClose={() => setShowFirstBoardModal(false)}
+          onCreateBoard={createBoard}
+        />
+      )}
     </div>
   );
 };

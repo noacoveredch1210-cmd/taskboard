@@ -1,3 +1,5 @@
+import { supabase } from "../lib/supabase";
+
 const BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5000/api";
 
@@ -24,9 +26,19 @@ const request = async <T>(
 ): Promise<T> => {
   const hasBody = body !== undefined;
 
+  // Supabase の現在セッションからアクセストークンを取得して Bearer 認証で送る。
+  // トークンの自動更新は supabase-js が行うため、毎リクエスト最新値を読む。
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const headers: Record<string, string> = {};
+  if (hasBody) headers["Content-Type"] = "application/json";
+  if (session) headers["Authorization"] = `Bearer ${session.access_token}`;
+
   const res = await fetch(`${BASE_URL}${path}`, {
     method,
-    headers: hasBody ? { "Content-Type": "application/json" } : undefined,
+    headers,
     body: hasBody ? JSON.stringify(body) : undefined,
   });
 

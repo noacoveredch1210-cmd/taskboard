@@ -4,9 +4,8 @@ using TaskBoard.Server.Models;
 
 namespace TaskBoard.Server.Controllers
 {
-    [ApiController]
     [Route("api/[controller]")]
-    public class CategoriesController : ControllerBase
+    public class CategoriesController : AuthorizedControllerBase
     {
         private readonly ICategoryRepository _repository;
 
@@ -15,10 +14,11 @@ namespace TaskBoard.Server.Controllers
             _repository = repository;
         }
 
+        // GET /api/categories （認証ユーザー自身のカテゴリー一覧）
         [HttpGet]
-        public async Task<IActionResult> GetByUser([FromQuery] Guid userId)
+        public async Task<IActionResult> GetMine()
         {
-            var categories = await _repository.GetByUserIdAsync(userId);
+            var categories = await _repository.GetByUserIdAsync(CurrentUserId);
             return Ok(categories);
         }
 
@@ -33,6 +33,8 @@ namespace TaskBoard.Server.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateCategoryRequest request)
         {
+            // 所有者は必ずトークンのユーザーに固定する（body の値は信用しない）。
+            request.UserId = CurrentUserId;
             await _repository.CreateAsync(request);
             var created = await _repository.GetByIdAsync(request.Id);
             return CreatedAtAction(nameof(GetById), new { id = request.Id }, created);

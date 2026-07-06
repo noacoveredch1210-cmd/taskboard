@@ -26,8 +26,8 @@ import type { Position } from "../types/position";
  * 指定ユーザーの board 一覧を取得し、UI 用のネスト構造へ組み立てる。
  * board ごとに positions / tasks を並列取得する。
  */
-export const loadBoards = async (userId: string): Promise<BoardInfo[]> => {
-  const boardDtos = await boardsApi.getByUser(userId);
+export const loadBoards = async (): Promise<BoardInfo[]> => {
+  const boardDtos = await boardsApi.getMine();
 
   return Promise.all(
     boardDtos.map(async (board) => {
@@ -40,15 +40,15 @@ export const loadBoards = async (userId: string): Promise<BoardInfo[]> => {
   );
 };
 
-/** 指定ユーザーのカテゴリー一覧を取得する。 */
-export const loadCategories = async (userId: string): Promise<Category[]> => {
-  const dtos = await categoriesApi.getByUser(userId);
+/** 認証ユーザー自身のカテゴリー一覧を取得する。 */
+export const loadCategories = async (): Promise<Category[]> => {
+  const dtos = await categoriesApi.getMine();
   return dtos.map(toCategory);
 };
 
-/** 指定ユーザーの情報を取得する。 */
-export const loadUser = async (userId: string): Promise<UserInfo> => {
-  const dto = await usersApi.getById(userId);
+/** 認証ユーザー自身の情報を取得する（初回は DB へ登録される）。 */
+export const loadUser = async (): Promise<UserInfo> => {
+  const dto = await usersApi.getMe();
   return toUserInfo(dto);
 };
 

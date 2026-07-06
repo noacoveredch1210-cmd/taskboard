@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using Npgsql;
 using System.Data;
 using TaskBoard.Server.Data;
@@ -20,6 +22,33 @@ builder.Services.AddCors(options =>
               )
               .AllowAnyMethod()
               .AllowAnyHeader()));
+
+// Supabase Auth が発行した JWT を検証する（トークンの署名/発行者/有効期限をサーバーで確認）。
+// SUPABASE_URL 例: https://xxxxxxxx.supabase.co
+// 署名は Supabase の非対称キー(ES256)。公開鍵は OIDC ディスカバリ
+// （{SUPABASE_URL}/auth/v1/.well-known/openid-configuration → jwks_uri）から自動取得する。
+var supabaseUrl = Environment.GetEnvironmentVariable("SUPABASE_URL")
+    ?? throw new InvalidOperationException("SUPABASE_URL is not set.");
+var authority = $"{supabaseUrl}/auth/v1";
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        // OIDC メタデータから発行者情報と署名用公開鍵(JWKS)を取得する。
+        options.Authority = authority;
+        // "sub" などのクレーム名を .NET 独自名にマッピングせず、そのまま扱う。
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = authority,
+            ValidateAudience = true,
+            ValidAudience = "authenticated",
+            ValidateIssuerSigningKey = true,
+            ValidateLifetime = true,
+            NameClaimType = "sub",
+        };
+    });
 
 builder.Services.AddScoped<IDbConnection>(_ =>
 {
@@ -59,6 +88,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowFrontend");
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

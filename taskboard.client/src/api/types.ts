@@ -61,7 +61,6 @@ export type UpdateUserRequest = {
 
 export type CreateBoardRequest = {
   id: string;
-  userId: string;
   shortName: string;
   title: string;
 };
@@ -93,7 +92,6 @@ export type UpdateTaskRequest = {
 
 export type CreateCategoryRequest = {
   id: string;
-  userId: string;
   name: string;
   color: string;
 };

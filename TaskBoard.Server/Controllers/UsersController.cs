@@ -1,12 +1,13 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
+using System.Text.Json;
+using Microsoft.AspNetCore.Mvc;
 using TaskBoard.Server.Data;
 using TaskBoard.Server.Models;
 
 namespace TaskBoard.Server.Controllers
 {
-    [ApiController]
     [Route("api/[controller]")]
-    public class UsersController : ControllerBase
+    public class UsersController : AuthorizedControllerBase
     {
         private readonly IUserRepository _repository;
 
@@ -15,44 +16,66 @@ namespace TaskBoard.Server.Controllers
             _repository = repository;
         }
 
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(Guid id)
+        // GET /api/users/me
+        // 認証済みユーザー自身の情報を返す。初回ログイン時は JWT のクレームから
+        // users レコードを作成（upsert）する。フロントは常にこれを呼べばよい。
+        [HttpGet("me")]
+        public async Task<IActionResult> GetMe()
         {
-            var user = await _repository.GetByIdAsync(id);
-            if (user is null) return NotFound();
+            var email = User.FindFirstValue("email") ?? string.Empty;
+            var name = ResolveName(User) ?? email;
+
+            await _repository.EnsureAsync(CurrentUserId, name, email);
+            var user = await _repository.GetByIdAsync(CurrentUserId);
             return Ok(user);
         }
 
-        [HttpGet("by-email")]
-        public async Task<IActionResult> GetByEmail([FromQuery] string email)
+        // PUT /api/users/me
+        [HttpPut("me")]
+        public async Task<IActionResult> UpdateMe([FromBody] UpdateUserRequest request)
         {
-            var user = await _repository.GetByEmailAsync(email);
-            if (user is null) return NotFound();
-            return Ok(user);
-        }
-
-        [HttpPost]
-        public async Task<IActionResult> Create([FromBody] CreateUserRequest request)
-        {
-            await _repository.CreateAsync(request);
-            var created = await _repository.GetByIdAsync(request.Id);
-            return CreatedAtAction(nameof(GetById), new { id = request.Id }, created);
-        }
-
-        [HttpPut("{id}")]
-        public async Task<IActionResult> Update(Guid id, [FromBody] UpdateUserRequest request)
-        {
-            var success = await _repository.UpdateAsync(id, request);
+            var success = await _repository.UpdateAsync(CurrentUserId, request);
             if (!success) return NotFound();
             return NoContent();
         }
 
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(Guid id)
+        // DELETE /api/users/me
+        [HttpDelete("me")]
+        public async Task<IActionResult> DeleteMe()
         {
-            var success = await _repository.DeleteAsync(id);
+            var success = await _repository.DeleteAsync(CurrentUserId);
             if (!success) return NotFound();
             return NoContent();
+        }
+
+        /// <summary>
+        /// Supabase JWT の user_metadata（JSON 文字列クレーム）から表示名を取り出す。
+        /// Google ログインでは full_name / name に氏名が入る。
+        /// </summary>
+        private static string? ResolveName(ClaimsPrincipal user)
+        {
+            var metaJson = user.FindFirstValue("user_metadata");
+            if (string.IsNullOrEmpty(metaJson)) return null;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(metaJson);
+                var root = doc.RootElement;
+                foreach (var key in new[] { "full_name", "name" })
+                {
+                    if (root.TryGetProperty(key, out var value)
+                        && value.ValueKind == JsonValueKind.String)
+                    {
+                        var name = value.GetString();
+                        if (!string.IsNullOrWhiteSpace(name)) return name;
+                    }
+                }
+            }
+            catch (JsonException)
+            {
+                // メタデータが想定外の形式でも表示名なしとして扱う
+            }
+            return null;
         }
     }
 }
