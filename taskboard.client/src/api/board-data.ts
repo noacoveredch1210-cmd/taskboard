@@ -22,25 +22,14 @@ import type { Category } from "../types/category";
 import type { TaskInfo } from "../types/taskInfo";
 import type { Position } from "../types/position";
 
-/** loadBoardData がまとめて返す、UI 用に整形済みの初期データ */
-export type BoardData = {
-  user: UserInfo;
-  boards: BoardInfo[];
-  categories: Category[];
-};
-
 /**
- * 指定ユーザーの画面表示に必要なデータを一括取得して UI 型へ変換する。
- * user / boards / categories を並列取得し、board ごとに positions / tasks を並列取得する。
+ * 指定ユーザーの board 一覧を取得し、UI 用のネスト構造へ組み立てる。
+ * board ごとに positions / tasks を並列取得する。
  */
-export const loadBoardData = async (userId: string): Promise<BoardData> => {
-  const [user, boardDtos, categoryDtos] = await Promise.all([
-    usersApi.getById(userId),
-    boardsApi.getByUser(userId),
-    categoriesApi.getByUser(userId),
-  ]);
+export const loadBoards = async (userId: string): Promise<BoardInfo[]> => {
+  const boardDtos = await boardsApi.getByUser(userId);
 
-  const boards = await Promise.all(
+  return Promise.all(
     boardDtos.map(async (board) => {
       const [positions, tasks] = await Promise.all([
         positionsApi.getByBoard(board.id),
@@ -49,12 +38,18 @@ export const loadBoardData = async (userId: string): Promise<BoardData> => {
       return toBoardInfo(board, positions, tasks);
     }),
   );
+};
 
-  return {
-    user: toUserInfo(user),
-    boards,
-    categories: categoryDtos.map(toCategory),
-  };
+/** 指定ユーザーのカテゴリー一覧を取得する。 */
+export const loadCategories = async (userId: string): Promise<Category[]> => {
+  const dtos = await categoriesApi.getByUser(userId);
+  return dtos.map(toCategory);
+};
+
+/** 指定ユーザーの情報を取得する。 */
+export const loadUser = async (userId: string): Promise<UserInfo> => {
+  const dto = await usersApi.getById(userId);
+  return toUserInfo(dto);
 };
 
 // ---- DTO → UI 型 マッパー ----
