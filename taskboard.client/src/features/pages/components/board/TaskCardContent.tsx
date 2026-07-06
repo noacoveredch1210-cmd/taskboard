@@ -59,8 +59,13 @@ const TaskCardContent = ({
 
   return (
     <>
-      <div className={`${importanceColor} border-r w-3 rounded-l`}></div>
-      <div className="p-2 flex-1 min-w-0 items-start flex flex-col gap-2">
+      {/* iOS Safari は <button> 直下の flex 子要素の stretch が効かず、
+          高さ0の色帯が見えなくなる。flex コンテナを div に分離して回避する */}
+      <div className="flex w-full">
+        <div
+          className={`${importanceColor} w-3 shrink-0 self-stretch border-r rounded-l`}
+        ></div>
+        <div className="p-2 flex-1 min-w-0 items-start flex flex-col gap-2">
         <div
           className="inline-block px-2 rounded text-sm"
           style={{
@@ -127,6 +132,7 @@ const TaskCardContent = ({
             </span>
           </div>
         )}
+        </div>
       </div>
       {openModal && onDelete && (
         // カードの<button>内なので、モーダル内クリックが編集モーダルを開かないよう伝播を止める
