@@ -8,7 +8,15 @@ import type { UserInfo } from "./types/userInfo.ts";
 import type { Category } from "./types/category.ts";
 import type { TaskInfo } from "./types/taskInfo.ts";
 import type { Position } from "./types/position.ts";
-import { loadBoardData } from "./api/board-data.ts";
+import {
+  loadBoardData,
+  toCreateTaskRequest,
+  toUpdateTaskRequest,
+} from "./api/board-data.ts";
+import { tasksApi } from "./api/tasks.ts";
+import { boardsApi } from "./api/boards.ts";
+import { categoriesApi } from "./api/categories.ts";
+import { positionsApi } from "./api/positions.ts";
 
 // 取得対象ユーザーの ID（テスト用に固定。実運用では認証結果などから決定する）
 // TODO: DB に存在する実ユーザーの GUID に置き換える
@@ -34,35 +42,71 @@ const Layout = () => {
   }, []);
   // #endregion
 
+  // API 呼び出しの失敗をまとめてログするヘルパー(オプティミスティック更新なので握りつぶす)
+  const reportError = (message: string) => (err: unknown) =>
+    console.error(message, err);
+
   // #region board情報変更・追加処理
-  // タスクの保存(idが既存なら更新、無ければ追加)
+  // タスクの保存(idが既存なら更新[PUT]、無ければ追加[POST])
   const handleSaveTask = (boardId: string, task: TaskInfo) => {
+    const board = boards.find((b) => b.id === boardId);
+    const tasks = board?.tasks ?? [];
+    const exists = tasks.some((t) => t.id === task.id);
+
+    if (exists) {
+      setBoards((prev) =>
+        prev.map((b) =>
+          b.id !== boardId
+            ? b
+            : { ...b, tasks: (b.tasks ?? []).map((t) => (t.id === task.id ? task : t)) },
+        ),
+      );
+      tasksApi
+        .update(task.id, toUpdateTaskRequest(task))
+        .catch(reportError("タスクの更新に失敗しました"));
+      return;
+    }
+
+    // 新規: 作成先カラムの末尾に来るよう order_index を採番する
+    const columnTasks = tasks.filter((t) => t.positionId === task.positionId);
+    const orderIndex = columnTasks.length
+      ? Math.max(...columnTasks.map((t) => t.orderIndex)) + 1
+      : 0;
+    const newTask: TaskInfo = { ...task, orderIndex };
+
     setBoards((prev) =>
-      prev.map((board) => {
-        if (board.id !== boardId) return board;
-        const tasks = board.tasks ?? [];
-        const exists = tasks.some((t) => t.id === task.id);
-        return {
-          ...board,
-          tasks: exists
-            ? tasks.map((t) => (t.id === task.id ? task : t))
-            : [...tasks, task],
-        };
-      }),
+      prev.map((b) =>
+        b.id !== boardId ? b : { ...b, tasks: [...(b.tasks ?? []), newTask] },
+      ),
     );
+    tasksApi
+      .create(toCreateTaskRequest(newTask, boardId))
+      .catch(reportError("タスクの作成に失敗しました"));
   };
 
   const handleSetBoard = (id: string, updates: Partial<BoardInfo>) => {
-    setBoards((prev) =>
-      prev.map((board) => {
-        if (board.id !== id) return board;
-        const merged = { ...board, ...updates };
+    const board = boards.find((b) => b.id === id);
+    if (!board) return;
 
-        // positionを編集した場合、消えたpositionに残るタスクは先頭positionへ退避
-        if (updates.positions) {
-          const validIds = new Set(updates.positions.map((p) => p.id));
-          const fallbackId = updates.positions[0]?.id ?? "";
-          merged.tasks = board.tasks?.map((task) =>
+    // 消えた position に残るタスクは先頭 position へ退避する
+    const validIds = updates.positions
+      ? new Set(updates.positions.map((p) => p.id))
+      : null;
+    const fallbackId = updates.positions?.[0]?.id ?? "";
+
+    // 退避対象を state 更新の前に確定しておく(更新関数内での副作用を避ける)
+    const reassignedTasks: TaskInfo[] = validIds
+      ? (board.tasks ?? [])
+          .filter((task) => !validIds.has(task.positionId))
+          .map((task) => ({ ...task, positionId: fallbackId }))
+      : [];
+
+    setBoards((prev) =>
+      prev.map((b) => {
+        if (b.id !== id) return b;
+        const merged = { ...b, ...updates };
+        if (validIds) {
+          merged.tasks = b.tasks?.map((task) =>
             validIds.has(task.positionId)
               ? task
               : { ...task, positionId: fallbackId },
@@ -71,6 +115,49 @@ const Layout = () => {
         return merged;
       }),
     );
+
+    // --- API 反映 ---
+    // board 本体
+    boardsApi
+      .update(id, {
+        shortName: updates.shortName ?? board.shortName,
+        title: updates.title ?? board.title,
+      })
+      .catch(reportError("boardの更新に失敗しました"));
+
+    if (updates.positions) {
+      const oldIds = new Set(board.positions.map((p) => p.id));
+      const newIds = new Set(updates.positions.map((p) => p.id));
+
+      // 退避したタスクを先に付け替え(position 削除より前。FK 制約対策)
+      reassignedTasks.forEach((task) =>
+        tasksApi
+          .update(task.id, toUpdateTaskRequest(task))
+          .catch(reportError("タスクの付け替えに失敗しました")),
+      );
+
+      // 追加 / 名前・並び順の更新
+      updates.positions.forEach((p, index) => {
+        if (oldIds.has(p.id)) {
+          positionsApi
+            .update(p.id, { name: p.name, orderIndex: index })
+            .catch(reportError("positionの更新に失敗しました"));
+        } else {
+          positionsApi
+            .create({ id: p.id, boardId: id, name: p.name, orderIndex: index })
+            .catch(reportError("positionの作成に失敗しました"));
+        }
+      });
+
+      // 削除
+      board.positions
+        .filter((p) => !newIds.has(p.id))
+        .forEach((p) =>
+          positionsApi
+            .remove(p.id)
+            .catch(reportError("positionの削除に失敗しました")),
+        );
+    }
   };
 
   const handleCreateBoard = (
@@ -78,28 +165,124 @@ const Layout = () => {
     shortName: string,
     positions: Position[],
   ) => {
+    const boardId = crypto.randomUUID();
     setBoards((prev) => [
       ...prev,
-      {
-        id: crypto.randomUUID(),
-        shortName,
-        title,
-        positions,
-        tasks: [],
-      },
+      { id: boardId, shortName, title, positions, tasks: [] },
     ]);
+
+    boardsApi
+      .create({ id: boardId, userId: CURRENT_USER_ID, shortName, title })
+      .then(() =>
+        Promise.all(
+          positions.map((p, index) =>
+            positionsApi.create({
+              id: p.id,
+              boardId,
+              name: p.name,
+              orderIndex: index,
+            }),
+          ),
+        ),
+      )
+      .catch(reportError("boardの作成に失敗しました"));
   };
 
   const handleDeleteBoards = (ids: string[]) => {
     setBoards((prev) => prev.filter((board) => !ids.includes(board.id)));
+    ids.forEach((id) =>
+      boardsApi.remove(id).catch(reportError("boardの削除に失敗しました")),
+    );
   };
   // #endregion
 
   // #region タスクの並び替え・コンテナ間移動処理
+  // ドラッグ中(dragOver)のライブ反映。state のみ更新し、DB 保存はしない
   const handleReorderTasks = (boardId: string, tasks: TaskInfo[]) => {
     setBoards((prev) =>
       prev.map((board) => (board.id !== boardId ? board : { ...board, tasks })),
     );
+  };
+
+  // 移動したタスクの新しい order_index を「移動先の両隣の中間値」で決める。
+  // 分数(double)を使うことで、更新は動かした 1 件だけで済む。
+  // 中間値が浮動小数の精度で表現できない(枯渇した)場合は null を返す → 呼び出し側でリバランス。
+  const nextOrderIndex = (
+    column: TaskInfo[],
+    at: number,
+  ): number | null => {
+    const prev = column[at - 1];
+    const next = column[at + 1];
+
+    if (prev && next) {
+      const mid = (prev.orderIndex + next.orderIndex) / 2;
+      // 精度が尽きると mid が両隣と一致してしまう。その時は null(要リバランス)
+      return mid > prev.orderIndex && mid < next.orderIndex ? mid : null;
+    }
+    if (next) return next.orderIndex - 1; // 先頭へ
+    if (prev) return prev.orderIndex + 1; // 末尾へ
+    return 0; // カラムに 1 件だけ
+  };
+
+  // 安全網: 分数が枯渇したカラムだけ order_index を 0,1,2,… に振り直して全件保存する。
+  // 通常は発動せず、同じ2件の間へ数十回挿入し続けた時のみ通る。
+  const rebalanceColumn = (
+    boardId: string,
+    allTasks: TaskInfo[],
+    column: TaskInfo[],
+  ) => {
+    const renumbered = new Map(column.map((t, i) => [t.id, i]));
+    const nextTasks = allTasks.map((t) => {
+      const index = renumbered.get(t.id);
+      return index === undefined ? t : { ...t, orderIndex: index };
+    });
+
+    setBoards((prev) =>
+      prev.map((board) =>
+        board.id !== boardId ? board : { ...board, tasks: nextTasks },
+      ),
+    );
+    // このカラムの全件を保存(この分岐はまれ)
+    column.forEach((t, i) =>
+      tasksApi
+        .update(t.id, toUpdateTaskRequest({ ...t, orderIndex: i }))
+        .catch(reportError("並び順の再整列に失敗しました")),
+    );
+  };
+
+  // 並び替えの確定(dragEnd 等)。動いた 1 件だけ order_index を計算して DB へ保存する
+  const handleCommitTaskMove = (
+    boardId: string,
+    movedTaskId: string,
+    tasks: TaskInfo[],
+  ) => {
+    const moved = tasks.find((t) => t.id === movedTaskId);
+    if (!moved) return;
+
+    const column = tasks.filter((t) => t.positionId === moved.positionId);
+    const at = column.findIndex((t) => t.id === movedTaskId);
+    const orderIndex = nextOrderIndex(column, at);
+
+    // 中間値が枯渇していたら、このカラムを振り直して終わり(安全網)
+    if (orderIndex === null) {
+      rebalanceColumn(boardId, tasks, column);
+      return;
+    }
+
+    const updated: TaskInfo = { ...moved, orderIndex };
+    setBoards((prev) =>
+      prev.map((board) =>
+        board.id !== boardId
+          ? board
+          : {
+              ...board,
+              tasks: tasks.map((t) => (t.id === movedTaskId ? updated : t)),
+            },
+      ),
+    );
+    tasksApi
+      .update(movedTaskId, toUpdateTaskRequest(updated))
+      .catch(reportError("タスクの並び順の保存に失敗しました"));
   };
   // #endregion
 
@@ -115,6 +298,9 @@ const Layout = () => {
             },
       ),
     );
+    taskIds.forEach((id) =>
+      tasksApi.remove(id).catch(reportError("タスクの削除に失敗しました")),
+    );
   };
   // #endregion
 
@@ -123,23 +309,34 @@ const Layout = () => {
     categoryId: string,
     updates: Partial<Category>,
   ) => {
+    const current = categories.find((c) => c.id === categoryId);
+    if (!current) return;
+    const merged = { ...current, ...updates };
+
     setCategories((prev) =>
       prev.map((category) =>
-        category.id !== categoryId ? category : { ...category, ...updates },
+        category.id !== categoryId ? category : merged,
       ),
     );
+    categoriesApi
+      .update(categoryId, { name: merged.name, color: merged.color })
+      .catch(reportError("カテゴリーの更新に失敗しました"));
   };
 
   const handleCreateCategory = (name: string, color: string) => {
-    setCategories((prev) => [
-      ...prev,
-      { id: crypto.randomUUID(), name, color },
-    ]);
+    const id = crypto.randomUUID();
+    setCategories((prev) => [...prev, { id, name, color }]);
+    categoriesApi
+      .create({ id, userId: CURRENT_USER_ID, name, color })
+      .catch(reportError("カテゴリーの作成に失敗しました"));
   };
 
   const handleDeleteCategories = (ids: string[]) => {
     setCategories((prev) =>
       prev.filter((category) => !ids.includes(category.id)),
+    );
+    ids.forEach((id) =>
+      categoriesApi.remove(id).catch(reportError("カテゴリーの削除に失敗しました")),
     );
   };
   // #endretion
@@ -191,6 +388,7 @@ const Layout = () => {
             onCreateBoard={handleCreateBoard}
             onDeleteBoards={handleDeleteBoards}
             onReorderTasks={handleReorderTasks}
+            onCommitTaskMove={handleCommitTaskMove}
             onDeleteTasks={handleDeleteTasks}
           />
         </div>

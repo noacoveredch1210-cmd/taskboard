@@ -25,6 +25,11 @@ type Props = {
   onSaveTask: (boardId: string, task: TaskInfo) => void;
   onCreateCategory: (name: string, color: string) => void;
   onReorderTasks: (boardId: string, tasks: TaskInfo[]) => void;
+  onCommitTaskMove: (
+    boardId: string,
+    movedTaskId: string,
+    tasks: TaskInfo[],
+  ) => void;
   onDeleteTasks: (boardId: string, taskIds: string[]) => void;
 };
 
@@ -37,6 +42,7 @@ const BoardPage = ({
   onSaveTask,
   onCreateCategory,
   onReorderTasks,
+  onCommitTaskMove,
   onDeleteTasks,
 }: Props) => {
   // ドラッグ中のタスク(DragOverlay表示用)
@@ -279,13 +285,20 @@ const BoardPage = ({
     const resolved = resolveOver(event);
     if (!resolved) return;
 
+    const movedTaskId = String(event.active.id);
     const next = buildNextTasks(
-      String(event.active.id),
+      movedTaskId,
       resolved.destPosId,
       resolved.overTaskId,
       resolved.placeAfter,
     );
     if (next) onReorderTasks(boardInfo.id, next);
+
+    // dragOver で既に反映済みだと next は null になるため、その場合は
+    // 現在の state をそのまま保存対象にする（並びは確定済み）
+    const finalTasks = next ?? boardInfo.tasks ?? [];
+    // 動いた 1 件の order_index を確定して DB へ保存する
+    onCommitTaskMove(boardInfo.id, movedTaskId, finalTasks);
   };
 
   // #region 次のpositionの先頭に移る
@@ -307,7 +320,10 @@ const BoardPage = ({
     // 次のpositionの先頭へ入れる
     columns.get(destPosId)?.unshift({ ...task, positionId: destPosId });
 
-    onReorderTasks(boardInfo.id, flattenColumns(columns));
+    const next = flattenColumns(columns);
+    onReorderTasks(boardInfo.id, next);
+    // 動いた 1 件の order_index を確定して DB へ保存する
+    onCommitTaskMove(boardInfo.id, task.id, next);
   };
   // #endregion
 

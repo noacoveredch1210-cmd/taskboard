@@ -6,7 +6,15 @@ import { boardsApi } from "./boards";
 import { tasksApi } from "./tasks";
 import { categoriesApi } from "./categories";
 import { positionsApi } from "./positions";
-import type { BoardDto, TaskDto, CategoryDto, PositionDto, UserDto } from "./types";
+import type {
+  BoardDto,
+  TaskDto,
+  CategoryDto,
+  PositionDto,
+  UserDto,
+  CreateTaskRequest,
+  UpdateTaskRequest,
+} from "./types";
 
 import type { UserInfo } from "../types/userInfo";
 import type { BoardInfo } from "../types/boardInfo";
@@ -87,6 +95,7 @@ const toTaskInfo = (dto: TaskDto): TaskInfo => {
     // 未設定は空文字（既存 UI の規約に合わせる）
     categoryId: dto.categoryId ?? "",
     positionId: dto.positionId ?? "",
+    orderIndex: dto.orderIndex,
   };
 };
 
@@ -94,4 +103,46 @@ const toTaskInfo = (dto: TaskDto): TaskInfo => {
 const parseDateOnly = (value: string): Date => {
   const [year, month, day] = value.split("-").map(Number);
   return new Date(year, month - 1, day);
+};
+
+/** Date をローカルタイムの "YYYY-MM-DD" へ整形する（parseDateOnly の逆） */
+const formatDateOnly = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+/**
+ * UI の TaskInfo を PUT 用ペイロードへ変換する。
+ * 空文字の id は「未設定」として null に戻す（DTO → UI の逆変換）。
+ */
+export const toUpdateTaskRequest = (task: TaskInfo): UpdateTaskRequest => {
+  return {
+    positionId: task.positionId || null,
+    categoryId: task.categoryId || null,
+    name: task.name,
+    comment: task.comment,
+    importance: task.importance,
+    deadline: task.deadline ? formatDateOnly(task.deadline) : null,
+    orderIndex: task.orderIndex,
+  };
+};
+
+/** UI の TaskInfo を POST 用ペイロードへ変換する。 */
+export const toCreateTaskRequest = (
+  task: TaskInfo,
+  boardId: string,
+): CreateTaskRequest => {
+  return {
+    id: task.id,
+    boardId,
+    positionId: task.positionId || null,
+    categoryId: task.categoryId || null,
+    name: task.name,
+    comment: task.comment,
+    importance: task.importance,
+    deadline: task.deadline ? formatDateOnly(task.deadline) : null,
+    orderIndex: task.orderIndex,
+  };
 };

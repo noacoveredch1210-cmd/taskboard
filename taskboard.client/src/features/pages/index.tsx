@@ -24,6 +24,11 @@ type Props = {
   ) => void;
   onDeleteBoards: (ids: string[]) => void;
   onReorderTasks: (boardId: string, tasks: TaskInfo[]) => void;
+  onCommitTaskMove: (
+    boardId: string,
+    movedTaskId: string,
+    tasks: TaskInfo[],
+  ) => void;
   onDeleteTasks: (boardId: string, taskIds: string[]) => void;
 };
 
@@ -40,6 +45,7 @@ const Pages = ({
   onCreateBoard,
   onDeleteBoards,
   onReorderTasks,
+  onCommitTaskMove,
   onDeleteTasks,
 }: Props) => {
   return (
@@ -66,6 +72,7 @@ const Pages = ({
             onSaveTask={onSaveTask}
             onCreateCategory={onCreateCategory}
             onReorderTasks={onReorderTasks}
+            onCommitTaskMove={onCommitTaskMove}
             onDeleteTasks={onDeleteTasks}
           />
         </div>

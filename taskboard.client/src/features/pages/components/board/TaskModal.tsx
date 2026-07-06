@@ -41,6 +41,8 @@ const TaskModal = ({
       importance: 0,
       categoryId: "",
       positionId: positionId ?? "",
+      // 実際の値は保存時に「作成先カラムの末尾」として採番される
+      orderIndex: 0,
     },
   );
 
