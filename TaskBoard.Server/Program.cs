@@ -17,7 +17,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend", policy =>
         policy.WithOrigins(
-                "https://your-app.vercel.app",   // 本番のVercel URL
+                "https://taskboard-zeta-eight.vercel.app",   // 本番のVercel URL
                 "http://localhost:5173"          // ローカル開発用
               )
               .AllowAnyMethod()
