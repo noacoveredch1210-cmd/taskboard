@@ -6,7 +6,7 @@ type Props = {
 
 const UserData = ({ userInfo }: Props) => {
   return (
-    <div className="flex gap-2 items-end">
+    <div className="flex gap-2 items-end flex-wrap pr-15">
       <span className="material-symbols-outlined">account_circle</span>
       <h4 className="px-1 text-xl font-medium">{userInfo.name}</h4>
       <span className="px-1 text-gray-500">{userInfo.email}</span>

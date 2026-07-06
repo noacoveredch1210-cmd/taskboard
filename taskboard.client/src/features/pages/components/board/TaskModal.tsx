@@ -5,6 +5,8 @@ import type { TaskInfo } from "../../../../types/taskInfo";
 import type { Category } from "../../../../types/category";
 import SaveButton from "../button/SaveButton";
 import BackButton from "../button/BackButton";
+import CharCounter from "../../../../components/CharCounter";
+import { TEXT_LIMITS } from "../../../../constants/textLimits";
 
 export type TaskModalProps = {
   boardId: string;
@@ -73,34 +75,48 @@ const TaskModal = ({
   return (
     <ModalBase className="p-5 w-150 flex flex-col gap-3" onClose={onClose}>
       <div className="flex gap-2">
-        <input
-          type="text"
-          className="w-100 border rounded px-2"
-          placeholder="タスク名を入力..."
-          value={draftTask.name}
-          onChange={(e) =>
-            setDraftTask((prev) => ({ ...prev, name: e.target.value }))
-          }
-        ></input>
+        <div className="w-100">
+          <input
+            type="text"
+            className="w-full border rounded px-2"
+            placeholder="タスク名を入力..."
+            maxLength={TEXT_LIMITS.taskName}
+            value={draftTask.name}
+            onChange={(e) =>
+              setDraftTask((prev) => ({ ...prev, name: e.target.value }))
+            }
+          ></input>
+          <CharCounter
+            current={draftTask.name.length}
+            max={TEXT_LIMITS.taskName}
+          />
+        </div>
         <div className=" text-gray-500 px-2">{positionName}</div>
       </div>
       <div className="bg-primary-light rounded p-3 flex flex-col gap-5">
-        <textarea
-          ref={textareaRef}
-          rows={3}
-          className="border bg-white rounded w-full resize-none p-2 max-h-40 overflow-auto"
-          placeholder="説明・コメントを入力..."
-          value={draftTask.comment}
-          onChange={(e) => {
-            setDraftTask((prev) => ({ ...prev, comment: e.target.value }));
+        <div>
+          <textarea
+            ref={textareaRef}
+            rows={3}
+            maxLength={TEXT_LIMITS.taskComment}
+            className="border bg-white rounded w-full resize-none p-2 max-h-40 overflow-auto"
+            placeholder="説明・コメントを入力..."
+            value={draftTask.comment}
+            onChange={(e) => {
+              setDraftTask((prev) => ({ ...prev, comment: e.target.value }));
 
-            // テキスト量によって高さを調整する
-            const el = textareaRef.current;
-            if (!el) return;
-            el.style.height = "auto"; // 一旦リセット
-            el.style.height = el.scrollHeight + "px"; // 中身に合わせる
-          }}
-        ></textarea>
+              // テキスト量によって高さを調整する
+              const el = textareaRef.current;
+              if (!el) return;
+              el.style.height = "auto"; // 一旦リセット
+              el.style.height = el.scrollHeight + "px"; // 中身に合わせる
+            }}
+          ></textarea>
+          <CharCounter
+            current={draftTask.comment.length}
+            max={TEXT_LIMITS.taskComment}
+          />
+        </div>
         <div className="grid grid-cols-2 grid-rows-3 w-80 gap-3">
           <div className="grid col-span-1">優先度・重要度</div>
           <select

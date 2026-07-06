@@ -1,6 +1,7 @@
 import type { Position } from "../../../../../types/position";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { TEXT_LIMITS } from "../../../../../constants/textLimits";
 
 type Props = {
   position: Position;
@@ -46,6 +47,7 @@ const PositionCard = ({
       <input
         value={position.name}
         onChange={(e) => onRenamePosition(position.id, e.target.value)}
+        maxLength={TEXT_LIMITS.positionName}
         className="min-w-0 flex-1 text-center bg-transparent focus:outline-none"
         placeholder="position名"
       />

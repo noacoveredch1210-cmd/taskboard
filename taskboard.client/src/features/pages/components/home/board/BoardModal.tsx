@@ -5,6 +5,8 @@ import DeleteModal from "../../modal/DeleteModal";
 import type { Position } from "../../../../../types/position";
 import BackButton from "../../button/BackButton";
 import SaveButton from "../../button/SaveButton";
+import CharCounter from "../../../../../components/CharCounter";
+import { TEXT_LIMITS } from "../../../../../constants/textLimits";
 import {
   DndContext,
   PointerSensor,
@@ -118,18 +120,32 @@ const BoardModal = ({ onClose, board, onSetBoard, onCreateBoard }: Props) => {
         <div className="font-medium text-lg">
           {board ? "board 編集" : "board 追加"}
         </div>
-        <input
-          value={draftTitle}
-          onChange={(e) => setDraftTitle(e.target.value)}
-          className="px-3 border rounded min-w-100"
-          placeholder="board名を入力..."
-        ></input>
-        <input
-          value={draftShortName}
-          onChange={(e) => setDraftShortName(e.target.value)}
-          className="px-3 border rounded min-w-100"
-          placeholder="board の short name を入力..."
-        ></input>
+        <div>
+          <input
+            value={draftTitle}
+            onChange={(e) => setDraftTitle(e.target.value)}
+            maxLength={TEXT_LIMITS.boardTitle}
+            className="px-3 border rounded w-full min-w-100"
+            placeholder="board名を入力..."
+          ></input>
+          <CharCounter
+            current={draftTitle.length}
+            max={TEXT_LIMITS.boardTitle}
+          />
+        </div>
+        <div>
+          <input
+            value={draftShortName}
+            onChange={(e) => setDraftShortName(e.target.value)}
+            maxLength={TEXT_LIMITS.boardShortName}
+            className="px-3 border rounded w-full min-w-100"
+            placeholder="board の short name を入力..."
+          ></input>
+          <CharCounter
+            current={draftShortName.length}
+            max={TEXT_LIMITS.boardShortName}
+          />
+        </div>
       </div>
       <div className="flex flex-col gap-2 min-h-60">
         <div className="flex items-center gap-3">
@@ -163,6 +179,7 @@ const BoardModal = ({ onClose, board, onSetBoard, onCreateBoard }: Props) => {
             value={draftPositionName}
             onChange={(e) => setDraftPositionName(e.target.value)}
             onKeyDown={handleKeyDown}
+            maxLength={TEXT_LIMITS.positionName}
             className="border-dashed border rounded w-40 text-center"
             placeholder="+ positionを追加"
           ></input>

@@ -37,7 +37,7 @@ const HomePage = ({
 }: Props) => {
   return (
     <div className="p-10 flex flex-col gap-2">
-      <div className="flex pb-5 gap-20">
+      <div className="flex pb-5 flex-wrap gap-5">
         <UserData userInfo={userInfo} />
         <LogoutButton />
       </div>

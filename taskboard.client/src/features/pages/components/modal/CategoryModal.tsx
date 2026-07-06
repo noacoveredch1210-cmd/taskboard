@@ -1,6 +1,8 @@
 import { useState } from "react";
 import ModalBase from "../ModalBase";
 import type { Category } from "../../../../types/category";
+import CharCounter from "../../../../components/CharCounter";
+import { TEXT_LIMITS } from "../../../../constants/textLimits";
 
 type Props = {
   onClose: () => void;
@@ -28,9 +30,11 @@ const CategoryModal = ({
           type="text"
           value={draftName}
           onChange={(e) => setDraftName(e.target.value)}
-          className="border rounded px-2 min-w-100"
+          maxLength={TEXT_LIMITS.categoryName}
+          className="border rounded px-2 w-full min-w-100"
           placeholder="カテゴリー名を入力..."
         ></input>
+        <CharCounter current={draftName.length} max={TEXT_LIMITS.categoryName} />
       </div>
       <div className="py-2">
         <div className="font-medium text-lg">テーマ色</div>

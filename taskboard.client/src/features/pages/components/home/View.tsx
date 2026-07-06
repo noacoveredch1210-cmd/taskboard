@@ -76,7 +76,10 @@ const View = <T extends Identifiable>({
   };
 
   return (
-    <div ref={rootRef} className="border-2 w-full h-70 relative flex flex-col">
+    <div
+      ref={rootRef}
+      className="border-2 w-full h-70 relative flex flex-col min-w-150"
+    >
       <div className="flex justify-between border-b-2 px-2 py-1 bg-primary-light">
         <span>{title}</span>
         <SelectButton
