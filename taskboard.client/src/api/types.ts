@@ -26,6 +26,8 @@ export type TaskDto = {
   importance: number | null;
   /** ISO 日付文字列（例: "2026-07-06"） */
   deadline: string | null;
+  /** 表示順（同一 position 内での並び順。分数を許容する） */
+  orderIndex: number;
   createdAt: string;
 };
 
@@ -41,6 +43,7 @@ export type PositionDto = {
   id: string;
   boardId: string;
   name: string;
+  orderIndex: number;
   createdAt: string;
 };
 
@@ -76,6 +79,7 @@ export type CreateTaskRequest = {
   comment?: string | null;
   importance?: number | null;
   deadline?: string | null;
+  orderIndex: number;
 };
 export type UpdateTaskRequest = {
   positionId?: string | null;
@@ -84,6 +88,7 @@ export type UpdateTaskRequest = {
   comment?: string | null;
   importance?: number | null;
   deadline?: string | null;
+  orderIndex: number;
 };
 
 export type CreateCategoryRequest = {
@@ -101,7 +106,9 @@ export type CreatePositionRequest = {
   id: string;
   boardId: string;
   name: string;
+  orderIndex: number;
 };
 export type UpdatePositionRequest = {
   name: string;
+  orderIndex: number;
 };

@@ -16,10 +16,10 @@ namespace TaskBoard.Server.Data
         public async Task<IEnumerable<Position>> GetByBoardIdAsync(Guid boardId)
         {
             const string sql = """
-            SELECT id, board_id AS BoardId, name, created_at AS CreatedAt
+            SELECT id, board_id AS BoardId, name, order_index AS OrderIndex, created_at AS CreatedAt
             FROM positions
             WHERE board_id = @BoardId
-            ORDER BY created_at
+            ORDER BY order_index
             """;
             return await _connection.QueryAsync<Position>(sql, new { BoardId = boardId });
         }
@@ -27,7 +27,7 @@ namespace TaskBoard.Server.Data
         public async Task<Position?> GetByIdAsync(Guid id)
         {
             const string sql = """
-            SELECT id, board_id AS BoardId, name, created_at AS CreatedAt
+            SELECT id, board_id AS BoardId, name, order_index AS OrderIndex, created_at AS CreatedAt
             FROM positions
             WHERE id = @Id
             """;
@@ -37,8 +37,8 @@ namespace TaskBoard.Server.Data
         public async Task CreateAsync(CreatePositionRequest request)
         {
             const string sql = """
-            INSERT INTO positions (id, board_id, name)
-            VALUES (@Id, @BoardId, @Name)
+            INSERT INTO positions (id, board_id, name, order_index)
+            VALUES (@Id, @BoardId, @Name, @OrderIndex)
             """;
             await _connection.ExecuteAsync(sql, request);
         }
@@ -47,10 +47,11 @@ namespace TaskBoard.Server.Data
         {
             const string sql = """
             UPDATE positions
-            SET name = @Name
+            SET name = @Name,
+                order_index = @OrderIndex
             WHERE id = @Id
             """;
-            var affectedRows = await _connection.ExecuteAsync(sql, new { Id = id, request.Name });
+            var affectedRows = await _connection.ExecuteAsync(sql, new { Id = id, request.Name, request.OrderIndex });
             return affectedRows > 0;
         }
 

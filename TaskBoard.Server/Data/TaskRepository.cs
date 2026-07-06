@@ -17,11 +17,11 @@ namespace TaskBoard.Server.Data
         {
             const string sql = """
             SELECT id, board_id AS BoardId, position_id AS PositionId,
-                   category_id AS CategoryId, name, comment, importance,
-                   deadline, created_at AS CreatedAt
+                    category_id AS CategoryId, name, comment, importance,
+                    deadline, order_index AS OrderIndex, created_at AS CreatedAt
             FROM tasks
             WHERE board_id = @BoardId
-            ORDER BY created_at
+            ORDER BY order_index
             """;
             return await _connection.QueryAsync<TaskItem>(sql, new { BoardId = boardId });
         }
@@ -30,8 +30,8 @@ namespace TaskBoard.Server.Data
         {
             const string sql = """
             SELECT id, board_id AS BoardId, position_id AS PositionId,
-                   category_id AS CategoryId, name, comment, importance,
-                   deadline, created_at AS CreatedAt
+                    category_id AS CategoryId, name, comment, importance,
+                    deadline, order_index AS OrderIndex, created_at AS CreatedAt
             FROM tasks
             WHERE id = @Id
             """;
@@ -41,8 +41,8 @@ namespace TaskBoard.Server.Data
         public async Task CreateAsync(CreateTaskRequest request)
         {
             const string sql = """
-            INSERT INTO tasks (id, board_id, position_id, category_id, name, comment, importance, deadline)
-            VALUES (@Id, @BoardId, @PositionId, @CategoryId, @Name, @Comment, @Importance, @Deadline)
+            INSERT INTO tasks (id, board_id, position_id, category_id, name, comment, importance, deadline, order_index)
+            VALUES (@Id, @BoardId, @PositionId, @CategoryId, @Name, @Comment, @Importance, @Deadline, @OrderIndex)
             """;
             await _connection.ExecuteAsync(sql, request);
         }
@@ -56,7 +56,8 @@ namespace TaskBoard.Server.Data
                 name = @Name,
                 comment = @Comment,
                 importance = @Importance,
-                deadline = @Deadline
+                deadline = @Deadline,
+                order_index = @OrderIndex
             WHERE id = @Id
             """;
             var affectedRows = await _connection.ExecuteAsync(sql, new
@@ -67,7 +68,8 @@ namespace TaskBoard.Server.Data
                 request.Name,
                 request.Comment,
                 request.Importance,
-                request.Deadline
+                request.Deadline,
+                request.OrderIndex
             });
             return affectedRows > 0;
         }

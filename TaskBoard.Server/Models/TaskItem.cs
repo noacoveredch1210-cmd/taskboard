@@ -10,6 +10,7 @@
         public string? Comment { get; set; }
         public int? Importance { get; set; }
         public DateOnly? Deadline { get; set; }
+        public double OrderIndex { get; set; }
         public DateTimeOffset CreatedAt { get; set; }
     }
 }
