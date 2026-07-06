@@ -1,6 +1,7 @@
 import ModalBase from "../../ModalBase";
 import { useState } from "react";
 import PositionCard from "./PositionCard";
+import DeleteModal from "../../modal/DeleteModal";
 import type { Position } from "../../../../../types/position";
 import BackButton from "../../button/BackButton";
 import SaveButton from "../../button/SaveButton";
@@ -42,11 +43,19 @@ const BoardModal = ({ onClose, board, onSetBoard, onCreateBoard }: Props) => {
     ],
   );
   const [draftPositionName, setDraftPositionName] = useState("");
+  // 削除確認モーダルの対象position(未表示時はnull)
+  const [deleteTarget, setDeleteTarget] = useState<Position | null>(null);
 
   // つまみ(drag_indicator)でドラッグするので小さめのしきい値
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
   );
+
+  // 既存boardの編集時、positionの並び順が元から変わったかどうか
+  const isReordered =
+    !!board &&
+    (board.positions.length !== draftPositions.length ||
+      board.positions.some((p, i) => p.id !== draftPositions[i]?.id));
 
   // #region positionの並べ替え
   const handleDragEnd = (event: DragEndEvent) => {
@@ -57,6 +66,16 @@ const BoardModal = ({ onClose, board, onSetBoard, onCreateBoard }: Props) => {
       const newIndex = prev.findIndex((p) => p.id === over.id);
       return arrayMove(prev, oldIndex, newIndex);
     });
+  };
+  // #endregion
+
+  // #region ポジション名の変更
+  const handleRenamePosition = (id: string, name: string) => {
+    setDraftPositions((prev) =>
+      prev.map((position) =>
+        position.id === id ? { ...position, name } : position,
+      ),
+    );
   };
   // #endregion
 
@@ -73,10 +92,24 @@ const BoardModal = ({ onClose, board, onSetBoard, onCreateBoard }: Props) => {
   // #endregion
 
   // #region ポジション削除
-  const handleDeletePosition = (id: string) => {
-    setDraftPositions((prev) => prev.filter((position) => position.id !== id));
+  // 削除ボタン押下時は即削除せず確認モーダルを開く
+  const handleRequestDeletePosition = (id: string) => {
+    const target = draftPositions.find((position) => position.id === id);
+    if (target) setDeleteTarget(target);
   };
 
+  const handleConfirmDeletePosition = () => {
+    if (!deleteTarget) return;
+    setDraftPositions((prev) =>
+      prev.filter((position) => position.id !== deleteTarget.id),
+    );
+  };
+
+  // 削除対象positionに紐づくタスク数(新規board作成時はtasksが無いので0)
+  const deleteTargetTaskCount = deleteTarget
+    ? (board?.tasks?.filter((task) => task.positionId === deleteTarget.id)
+        .length ?? 0)
+    : 0;
   // #endregion
 
   return (
@@ -119,7 +152,8 @@ const BoardModal = ({ onClose, board, onSetBoard, onCreateBoard }: Props) => {
               <PositionCard
                 key={position.id}
                 position={position}
-                onDeletePosition={handleDeletePosition}
+                onRenamePosition={handleRenamePosition}
+                onDeletePosition={handleRequestDeletePosition}
               />
             ))}
           </SortableContext>
@@ -132,6 +166,14 @@ const BoardModal = ({ onClose, board, onSetBoard, onCreateBoard }: Props) => {
             className="border-dashed border rounded w-40 text-center"
             placeholder="+ positionを追加"
           ></input>
+        )}
+        {isReordered && (
+          <div className="flex items-start gap-1 text-sm text-amber-600">
+            <span className="material-symbols-outlined text-base!">warning</span>
+            <span>
+              position を入れ替えると、現在のタスク配置が崩れる可能性があります。
+            </span>
+          </div>
         )}
       </div>
       <div className="flex justify-end gap-3">
@@ -160,6 +202,24 @@ const BoardModal = ({ onClose, board, onSetBoard, onCreateBoard }: Props) => {
           onClose={onClose}
         />
       </div>
+      {deleteTarget && (
+        <DeleteModal
+          irreversible={false}
+          message={
+            <>
+              <div>「{deleteTarget.name}」を削除しますか？</div>
+              {deleteTargetTaskCount > 0 && (
+                <div className="mt-1 text-amber-600">
+                  この position には {deleteTargetTaskCount}{" "}
+                  件のタスクが設定されています。削除すると意図せぬ挙動になる場合があります。
+                </div>
+              )}
+            </>
+          }
+          onConfirm={handleConfirmDeletePosition}
+          onClose={() => setDeleteTarget(null)}
+        />
+      )}
     </ModalBase>
   );
 };

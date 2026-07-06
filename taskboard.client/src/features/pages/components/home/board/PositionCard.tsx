@@ -4,10 +4,15 @@ import { CSS } from "@dnd-kit/utilities";
 
 type Props = {
   position: Position;
+  onRenamePosition: (id: string, name: string) => void;
   onDeletePosition: (id: string) => void;
 };
 
-const PositionCard = ({ position, onDeletePosition }: Props) => {
+const PositionCard = ({
+  position,
+  onRenamePosition,
+  onDeletePosition,
+}: Props) => {
   const {
     attributes,
     listeners,
@@ -37,7 +42,13 @@ const PositionCard = ({ position, onDeletePosition }: Props) => {
       >
         drag_indicator
       </span>
-      <span>{position.name}</span>
+      {/* カードを書き換えて名前変更 */}
+      <input
+        value={position.name}
+        onChange={(e) => onRenamePosition(position.id, e.target.value)}
+        className="min-w-0 flex-1 text-center bg-transparent focus:outline-none"
+        placeholder="position名"
+      />
       <button onClick={() => onDeletePosition(position.id)}>
         <span className="material-symbols-outlined text-sm!">close</span>
       </button>
