@@ -2,60 +2,61 @@
 using TaskBoard.Server.Data;
 using TaskBoard.Server.Models;
 
-namespace TaskBoard.Server.Controllers;
-
-[ApiController]
-[Route("api/[controller]")]
-public class TasksController : ControllerBase
+namespace TaskBoard.Server.Controllers
 {
-    private readonly ITaskRepository _repository;
-
-    public TasksController(ITaskRepository repository)
+    [ApiController]
+    [Route("api/[controller]")]
+    public class TasksController : ControllerBase
     {
-        _repository = repository;
-    }
+        private readonly ITaskRepository _repository;
 
-    // GET /api/tasks?boardId=xxx
-    [HttpGet]
-    public async Task<IActionResult> GetByBoard([FromQuery] Guid boardId)
-    {
-        var tasks = await _repository.GetByBoardIdAsync(boardId);
-        return Ok(tasks);
-    }
+        public TasksController(ITaskRepository repository)
+        {
+            _repository = repository;
+        }
 
-    // GET /api/tasks/{id}
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetById(Guid id)
-    {
-        var task = await _repository.GetByIdAsync(id);
-        if (task is null) return NotFound();
-        return Ok(task);
-    }
+        // GET /api/tasks?boardId=xxx
+        [HttpGet]
+        public async Task<IActionResult> GetByBoard([FromQuery] Guid boardId)
+        {
+            var tasks = await _repository.GetByBoardIdAsync(boardId);
+            return Ok(tasks);
+        }
 
-    // POST /api/tasks
-    [HttpPost]
-    public async Task<IActionResult> Create([FromBody] CreateTaskRequest request)
-    {
-        await _repository.CreateAsync(request);
-        var created = await _repository.GetByIdAsync(request.Id);
-        return CreatedAtAction(nameof(GetById), new { id = request.Id }, created);
-    }
+        // GET /api/tasks/{id}
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(Guid id)
+        {
+            var task = await _repository.GetByIdAsync(id);
+            if (task is null) return NotFound();
+            return Ok(task);
+        }
 
-    // PUT /api/tasks/{id}
-    [HttpPut("{id}")]
-    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateTaskRequest request)
-    {
-        var success = await _repository.UpdateAsync(id, request);
-        if (!success) return NotFound();
-        return NoContent();
-    }
+        // POST /api/tasks
+        [HttpPost]
+        public async Task<IActionResult> Create([FromBody] CreateTaskRequest request)
+        {
+            await _repository.CreateAsync(request);
+            var created = await _repository.GetByIdAsync(request.Id);
+            return CreatedAtAction(nameof(GetById), new { id = request.Id }, created);
+        }
 
-    // DELETE /api/tasks/{id}
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(Guid id)
-    {
-        var success = await _repository.DeleteAsync(id);
-        if (!success) return NotFound();
-        return NoContent();
+        // PUT /api/tasks/{id}
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(Guid id, [FromBody] UpdateTaskRequest request)
+        {
+            var success = await _repository.UpdateAsync(id, request);
+            if (!success) return NotFound();
+            return NoContent();
+        }
+
+        // DELETE /api/tasks/{id}
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(Guid id)
+        {
+            var success = await _repository.DeleteAsync(id);
+            if (!success) return NotFound();
+            return NoContent();
+        }
     }
 }

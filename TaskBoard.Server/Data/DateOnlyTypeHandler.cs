@@ -1,32 +1,33 @@
 ﻿using System.Data;
 using Dapper;
 
-namespace TaskBoard.Server.Data;
-
-public class DateOnlyTypeHandler : SqlMapper.TypeHandler<DateOnly>
+namespace TaskBoard.Server.Data
 {
-    public override void SetValue(IDbDataParameter parameter, DateOnly value)
+    public class DateOnlyTypeHandler : SqlMapper.TypeHandler<DateOnly>
     {
-        parameter.Value = value.ToDateTime(TimeOnly.MinValue);
+        public override void SetValue(IDbDataParameter parameter, DateOnly value)
+        {
+            parameter.Value = value.ToDateTime(TimeOnly.MinValue);
+        }
+
+        public override DateOnly Parse(object value)
+        {
+            return DateOnly.FromDateTime((DateTime)value);
+        }
     }
 
-    public override DateOnly Parse(object value)
+    public class NullableDateOnlyTypeHandler : SqlMapper.TypeHandler<DateOnly?>
     {
-        return DateOnly.FromDateTime((DateTime)value);
-    }
-}
+        public override void SetValue(IDbDataParameter parameter, DateOnly? value)
+        {
+            parameter.Value = value.HasValue
+                ? value.Value.ToDateTime(TimeOnly.MinValue)
+                : DBNull.Value;
+        }
 
-public class NullableDateOnlyTypeHandler : SqlMapper.TypeHandler<DateOnly?>
-{
-    public override void SetValue(IDbDataParameter parameter, DateOnly? value)
-    {
-        parameter.Value = value.HasValue
-            ? value.Value.ToDateTime(TimeOnly.MinValue)
-            : DBNull.Value;
-    }
-
-    public override DateOnly? Parse(object value)
-    {
-        return value is DateTime dt ? DateOnly.FromDateTime(dt) : null;
+        public override DateOnly? Parse(object value)
+        {
+            return value is DateTime dt ? DateOnly.FromDateTime(dt) : null;
+        }
     }
 }
