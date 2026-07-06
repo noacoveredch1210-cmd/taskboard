@@ -12,7 +12,14 @@ namespace TaskBoard.Server.Data
 
         public override DateOnly Parse(object value)
         {
-            return DateOnly.FromDateTime((DateTime)value);
+            // Npgsql は date 列を DateOnly で返す。DateTime で返る環境にも備える。
+            return value switch
+            {
+                DateOnly d => d,
+                DateTime dt => DateOnly.FromDateTime(dt),
+                _ => throw new InvalidCastException(
+                    $"date 列を DateOnly に変換できません: {value?.GetType().Name ?? "null"}"),
+            };
         }
     }
 
@@ -27,7 +34,13 @@ namespace TaskBoard.Server.Data
 
         public override DateOnly? Parse(object value)
         {
-            return value is DateTime dt ? DateOnly.FromDateTime(dt) : null;
+            // Npgsql は date 列を DateOnly で返す。DateTime で返る環境にも備える。
+            return value switch
+            {
+                DateOnly d => d,
+                DateTime dt => DateOnly.FromDateTime(dt),
+                _ => null,
+            };
         }
     }
 }

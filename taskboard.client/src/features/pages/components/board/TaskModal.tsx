@@ -48,10 +48,20 @@ const TaskModal = ({
 
   const [showCategoryModal, setShowCategoryModal] = useState(false);
 
-  // Date → stringｒ
+  // Date → "YYYY-MM-DD"(ローカル時間基準。UTC変換による日ズレを防ぐ)
   const formatDate = (date?: Date) => {
     if (!date) return "";
-    return date.toISOString().split("T")[0];
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  // "YYYY-MM-DD" → ローカル時間の Date(new Date(str) の UTC解釈による日ズレを防ぐ)
+  const parseDate = (value: string): Date | undefined => {
+    if (!value) return undefined;
+    const [year, month, day] = value.split("-").map(Number);
+    return new Date(year, month - 1, day);
   };
 
   // #region 確定処理
@@ -116,7 +126,7 @@ const TaskModal = ({
             onChange={(e) =>
               setDraftTask((prev) => ({
                 ...prev,
-                deadline: new Date(e.target.value),
+                deadline: parseDate(e.target.value),
               }))
             }
             className="border bg-white rounded w-50 px-2"
