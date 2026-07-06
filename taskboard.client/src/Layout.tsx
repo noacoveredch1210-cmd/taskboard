@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Header from "./features/header/index.tsx";
 import Sidebar from "./features/sidebar/index.tsx";
 import Pages from "./features/pages/index.tsx";
@@ -8,65 +8,30 @@ import type { UserInfo } from "./types/userInfo.ts";
 import type { Category } from "./types/category.ts";
 import type { TaskInfo } from "./types/taskInfo.ts";
 import type { Position } from "./types/position.ts";
+import { loadBoardData } from "./api/board-data.ts";
 
-// seed(本来はDBから取得)。タスクから参照するためカテゴリー・positionのidを先に確定させておく
-const SEED_CAT_SHANAI = crypto.randomUUID();
-const SEED_CAT_TORIHIKI = crypto.randomUUID();
-const SEED_CAT_PRIVATE = crypto.randomUUID();
-
-const SEED_B1_POS_TODO = crypto.randomUUID();
-const SEED_B1_POS_DOING = crypto.randomUUID();
-const SEED_B1_POS_DONE = crypto.randomUUID();
+// 取得対象ユーザーの ID（テスト用に固定。実運用では認証結果などから決定する）
+// TODO: DB に存在する実ユーザーの GUID に置き換える
+const CURRENT_USER_ID = "3afa0a01-8a0b-45b4-a4d6-e61a654d1c48";
 
 const Layout = () => {
   // #region DBから取得する
-  const [boards, setBoards] = useState<BoardInfo[]>([
-    {
-      id: crypto.randomUUID(),
-      shortName: "board 1",
-      title: "業務タスクboard 1",
-      positions: [
-        { id: SEED_B1_POS_TODO, name: "未処理" },
-        { id: SEED_B1_POS_DOING, name: "処理中" },
-        { id: SEED_B1_POS_DONE, name: "完了" },
-      ],
-      tasks: [
-        {
-          id: crypto.randomUUID(),
-          name: "会議",
-          comment: "あああ",
-          importance: 2,
-          deadline: new Date(2026, 6, 6),
-          categoryId: SEED_CAT_SHANAI,
-          positionId: SEED_B1_POS_TODO,
-        },
-        {
-          id: crypto.randomUUID(),
-          name: "メール",
-          comment: "あああ",
-          importance: 1,
-          categoryId: SEED_CAT_PRIVATE,
-          positionId: SEED_B1_POS_TODO,
-        },
-      ],
-    },
-    {
-      id: crypto.randomUUID(),
-      shortName: "board 2",
-      title: "業務タスクboard 2",
-      positions: [
-        { id: crypto.randomUUID(), name: "未処理" },
-        { id: crypto.randomUUID(), name: "完了" },
-      ],
-      tasks: [],
-    },
-  ]);
+  const [boards, setBoards] = useState<BoardInfo[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [userInfo, setUserInfo] = useState<UserInfo>({ name: "", email: "" });
 
-  const [categories, setCategories] = useState<Category[]>([
-    { id: SEED_CAT_SHANAI, name: "社内", color: "#5C6289" },
-    { id: SEED_CAT_TORIHIKI, name: "取引先", color: "#5C8962" },
-    { id: SEED_CAT_PRIVATE, name: "プライベート", color: "#895C5D" },
-  ]);
+  // マウント時に API から初期データを取得して state に反映する
+  useEffect(() => {
+    loadBoardData(CURRENT_USER_ID)
+      .then((data) => {
+        setBoards(data.boards);
+        setCategories(data.categories);
+        setUserInfo(data.user);
+      })
+      .catch((err) => {
+        console.error("初期データの取得に失敗しました", err);
+      });
+  }, []);
   // #endregion
 
   // #region board情報変更・追加処理
@@ -179,12 +144,8 @@ const Layout = () => {
   };
   // #endretion
 
-  const userInfo: UserInfo = {
-    name: "山田花子",
-    email: "hanako@example.com",
-  };
-
-  const [openingPageIndex, setOpeningPageIndex] = useState<number | null>(0);
+  // 初期表示はホーム画面（データ取得完了前に board を参照して落ちるのを防ぐ）
+  const [openingPageIndex, setOpeningPageIndex] = useState<number | null>(null);
   const [openSidebar, setOpenSidebar] = useState(true);
   const [openAIWindow, setOpenAIWindow] = useState(false);
 
@@ -212,7 +173,7 @@ const Layout = () => {
             title={
               openingPageIndex === null
                 ? "ホーム画面"
-                : boards[openingPageIndex].title
+                : (boards[openingPageIndex]?.title ?? "")
             }
           />
         </div>
