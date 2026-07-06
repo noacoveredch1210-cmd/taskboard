@@ -4,6 +4,7 @@ import Sidebar from "./features/sidebar/index.tsx";
 import Pages from "./features/pages/index.tsx";
 import AI from "./features/AI/index.tsx";
 import BoardModal from "./features/pages/components/home/board/BoardModal.tsx";
+import ErrorScreen from "./components/ErrorScreen.tsx";
 import { useBoards } from "./hooks/useBoards.ts";
 import { useCategories } from "./hooks/useCategories.ts";
 import { useUser } from "./hooks/useUser.ts";
@@ -14,6 +15,7 @@ const Layout = () => {
   const {
     boards,
     loaded,
+    error,
     saveTask,
     setBoard,
     createBoard,
@@ -47,6 +49,9 @@ const Layout = () => {
     setOpenAIWindow(willOpen);
     if (willOpen) setOpenSidebar(false);
   };
+
+  // 初期取得に失敗したら、アプリ本体の代わりにエラー画面を表示する
+  if (error) return <ErrorScreen onRetry={() => window.location.reload()} />;
 
   return (
     <div className="flex h-dvh overflow-hidden">

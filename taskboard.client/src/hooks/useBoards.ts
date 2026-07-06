@@ -20,12 +20,17 @@ export const useBoards = () => {
   const [boards, setBoards] = useState<BoardInfo[]>([]);
   // 初回ロード完了フラグ（空配列の初期状態と「ロード後に本当に0件」を区別する）
   const [loaded, setLoaded] = useState(false);
+  // 初回取得に失敗したか（true のときは呼び出し側でエラー画面を出す）
+  const [error, setError] = useState(false);
 
   // マウント時に API から board 一覧を取得する
   useEffect(() => {
     loadBoards()
       .then(setBoards)
-      .catch(reportError("boardの取得に失敗しました"))
+      .catch((e) => {
+        setError(true);
+        reportError("boardの取得に失敗しました")(e);
+      })
       .finally(() => setLoaded(true));
   }, []);
 
@@ -286,6 +291,7 @@ export const useBoards = () => {
   return {
     boards,
     loaded,
+    error,
     saveTask,
     setBoard,
     createBoard,
