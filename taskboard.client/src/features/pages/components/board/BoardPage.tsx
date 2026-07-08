@@ -15,6 +15,13 @@ import Sort, { type SortKey } from "./Sort";
 import Filter, { type FilterType } from "./Filter";
 import Container from "./Container";
 import TaskCardContent from "./TaskCardContent";
+import {
+  COLUMN_PREFIX,
+  resolveDrop,
+  buildColumns,
+  flattenColumns,
+  buildNextTasks,
+} from "./boardLogic";
 import type { BoardInfo } from "../../../../types/boardInfo";
 import type { TaskInfo } from "../../../../types/taskInfo";
 import type { Category } from "../../../../types/category";
@@ -32,9 +39,6 @@ type Props = {
   ) => void;
   onDeleteTasks: (boardId: string, taskIds: string[]) => void;
 };
-
-// コンテナ(ドロップ領域)のid。タスクid(UUID)と区別するため接頭辞を付ける
-const COLUMN_PREFIX = "col-";
 
 const BoardPage = ({
   boardInfo,
@@ -168,96 +172,19 @@ const BoardPage = ({
     (c) => c.id === activeTask?.categoryId,
   );
 
-  // positionId -> tasks をposition順に組み立てる(配列順＝表示順)
-  const buildColumns = (tasks: TaskInfo[]) => {
-    const columns = new Map<string, TaskInfo[]>();
-    boardInfo.positions.forEach((p) => columns.set(p.id, []));
-    tasks.forEach((t) => columns.get(t.positionId)?.push(t));
-    return columns;
-  };
+  // position の並び順（純粋関数へ渡す）
+  const positionIds = boardInfo.positions.map((p) => p.id);
 
-  const flattenColumns = (columns: Map<string, TaskInfo[]>) =>
-    boardInfo.positions.flatMap((p) => columns.get(p.id) ?? []);
-
-  // #region ドロップ先(position・タスク・挿入が後ろか)を解決する
+  // ドロップ先(position・タスク・挿入が後ろか)を解決する
   const resolveOver = (event: DragEndEvent | DragOverEvent) => {
     const { active, over } = event;
-    if (!over) return null;
-
-    // コンテナ自体の上(空コンテナ等) → 末尾に追加
-    if (typeof over.id === "string" && over.id.startsWith(COLUMN_PREFIX)) {
-      return {
-        destPosId: over.id.slice(COLUMN_PREFIX.length),
-        overTaskId: null as string | null,
-        placeAfter: false,
-      };
-    }
-
-    // タスクの上 → そのタスクと同じposition
-    const overTaskId = String(over.id);
-    const overTask = boardInfo.tasks?.find((t) => t.id === overTaskId);
-    if (!overTask) return null;
-
-    // ポインタ(ドラッグ中の中心)がカード下半分なら、そのカードの後ろに入れる
-    const activeRect = active.rect.current.translated;
-    const placeAfter =
-      !!activeRect &&
-      activeRect.top + activeRect.height / 2 >
-        over.rect.top + over.rect.height / 2;
-
-    return { destPosId: overTask.positionId, overTaskId, placeAfter };
+    return resolveDrop(
+      over?.id ?? null,
+      over?.rect ?? null,
+      active.rect.current.translated ?? null,
+      boardInfo.tasks ?? [],
+    );
   };
-  // #endregion
-
-  // #region 並べ替え後のタスク配列を計算する(変化が無ければnull)
-  const buildNextTasks = (
-    activeId: string,
-    destPosId: string,
-    overTaskId: string | null,
-    placeAfter: boolean,
-  ): TaskInfo[] | null => {
-    const tasks = boardInfo.tasks ?? [];
-    const draggedTask = tasks.find((t) => t.id === activeId);
-    if (!draggedTask) return null;
-
-    const columns = buildColumns(tasks);
-
-    // 移動元から取り除く
-    const sourceCol = columns.get(draggedTask.positionId);
-    if (!sourceCol) return null;
-    const fromIndex = sourceCol.findIndex((t) => t.id === activeId);
-    if (fromIndex === -1) return null;
-    sourceCol.splice(fromIndex, 1);
-
-    // 挿入位置を決める
-    const dest = columns.get(destPosId);
-    if (!dest) return null;
-    let toIndex: number;
-    if (overTaskId === null) {
-      // 空きエリア・コンテナ自体の上 → 末尾
-      toIndex = dest.length;
-    } else if (overTaskId === activeId) {
-      // 自分自身の上 → 位置を変えない
-      toIndex = fromIndex;
-    } else {
-      const i = dest.findIndex((t) => t.id === overTaskId);
-      toIndex = i === -1 ? dest.length : i + (placeAfter ? 1 : 0);
-    }
-
-    // positionIdを更新して挿入
-    dest.splice(toIndex, 0, { ...draggedTask, positionId: destPosId });
-
-    const next = flattenColumns(columns);
-
-    // 並びもpositionも変わっていなければ更新しない(再レンダリングのちらつき防止)
-    const unchanged =
-      next.length === tasks.length &&
-      next.every(
-        (t, i) => t.id === tasks[i].id && t.positionId === tasks[i].positionId,
-      );
-    return unchanged ? null : next;
-  };
-  // #endregion
 
   const handleDragStart = (event: DragStartEvent) => {
     const id = String(event.active.id);
@@ -271,6 +198,8 @@ const BoardPage = ({
     if (!resolved) return;
 
     const next = buildNextTasks(
+      boardInfo.tasks ?? [],
+      positionIds,
       String(event.active.id),
       resolved.destPosId,
       resolved.overTaskId,
@@ -287,6 +216,8 @@ const BoardPage = ({
 
     const movedTaskId = String(event.active.id);
     const next = buildNextTasks(
+      boardInfo.tasks ?? [],
+      positionIds,
       movedTaskId,
       resolved.destPosId,
       resolved.overTaskId,
@@ -308,7 +239,7 @@ const BoardPage = ({
     if (idx === -1 || idx >= boardInfo.positions.length - 1) return;
     const destPosId = boardInfo.positions[idx + 1].id;
 
-    const columns = buildColumns(boardInfo.tasks ?? []);
+    const columns = buildColumns(boardInfo.tasks ?? [], positionIds);
 
     // 移動元から取り除く
     const sourceCol = columns.get(task.positionId);
@@ -320,7 +251,7 @@ const BoardPage = ({
     // 次のpositionの先頭へ入れる
     columns.get(destPosId)?.unshift({ ...task, positionId: destPosId });
 
-    const next = flattenColumns(columns);
+    const next = flattenColumns(columns, positionIds);
     onReorderTasks(boardInfo.id, next);
     // 動いた 1 件の order_index を確定して DB へ保存する
     onCommitTaskMove(boardInfo.id, task.id, next);
