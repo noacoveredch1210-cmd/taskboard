@@ -8,6 +8,7 @@ import ErrorScreen from "./components/ErrorScreen.tsx";
 import { useBoards } from "./hooks/useBoards.ts";
 import { useCategories } from "./hooks/useCategories.ts";
 import { useUser } from "./hooks/useUser.ts";
+import Loading from "./components/Loading.tsx";
 
 const Layout = () => {
   // データ取得・更新はフックに委譲(いずれもオプティミスティック更新)。
@@ -52,6 +53,9 @@ const Layout = () => {
 
   // 初期取得に失敗したら、アプリ本体の代わりにエラー画面を表示する
   if (error) return <ErrorScreen onRetry={() => window.location.reload()} />;
+
+  // 初期ロード中はロード画面を出す
+  if (!loaded) return <Loading />;
 
   return (
     <div className="flex h-dvh overflow-hidden">
