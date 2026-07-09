@@ -161,7 +161,10 @@ npm run coverage   # カバレッジ付き
 | リクエストモデル | `[MaxLength]` 等のバリデーション属性を DataAnnotations で直接検証 |
 | 型ハンドラ | `DateOnly` ⇄ Npgsql の変換を単体で検証 |
 | React コンポーネント | Testing Library でユーザー操作を再現し、DOM の結果を検証 |
+| 状態管理フック | `useBoards` を `renderHook` で駆動し、API モジュールをモックして呼び出しを検証 |
 | ドメインロジック | `boardLogic.ts` / `board-data.ts` を純粋関数として単体検証 |
+
+カバレッジは `include: ["src/**/*.{ts,tsx}"]` を指定し、テストから一度も import されないファイルも分母に含めている。
 
 ## API
 
