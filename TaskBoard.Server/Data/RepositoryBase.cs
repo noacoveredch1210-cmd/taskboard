@@ -15,13 +15,6 @@ namespace TaskBoard.Server.Data
             Connection = connection;
         }
 
-        protected async Task<bool> DeleteByIdAsync(string table, Guid id)
-        {
-            var sql = $"DELETE FROM {table} WHERE id = @Id";
-            var affectedRows = await Connection.ExecuteAsync(sql, new { Id = id });
-            return affectedRows > 0;
-        }
-
         /// <summary>user_id 列を持つテーブルから、所有者本人の行だけを削除する。</summary>
         protected async Task<bool> DeleteOwnedAsync(string table, Guid id, Guid userId)
         {

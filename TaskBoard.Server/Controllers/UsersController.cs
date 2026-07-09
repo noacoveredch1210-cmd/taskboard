@@ -39,15 +39,6 @@ namespace TaskBoard.Server.Controllers
             return NoContent();
         }
 
-        // DELETE /api/users/me
-        [HttpDelete("me")]
-        public async Task<IActionResult> DeleteMe()
-        {
-            var success = await _repository.DeleteAsync(CurrentUserId);
-            if (!success) return NotFound();
-            return NoContent();
-        }
-
         /// <summary>
         /// Supabase JWT の user_metadata（JSON 文字列クレーム）から表示名を取り出す。
         /// Google ログインでは full_name / name に氏名が入る。

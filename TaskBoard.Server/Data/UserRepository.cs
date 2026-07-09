@@ -20,25 +20,6 @@ namespace TaskBoard.Server.Data
             return await Connection.QuerySingleOrDefaultAsync<User>(sql, new { Id = id });
         }
 
-        public async Task<User?> GetByEmailAsync(string email)
-        {
-            var sql = $"""
-            SELECT {Columns}
-            FROM users
-            WHERE email = @Email
-            """;
-            return await Connection.QuerySingleOrDefaultAsync<User>(sql, new { Email = email });
-        }
-
-        public async Task CreateAsync(CreateUserRequest request)
-        {
-            const string sql = """
-            INSERT INTO users (id, name, email)
-            VALUES (@Id, @Name, @Email)
-            """;
-            await Connection.ExecuteAsync(sql, request);
-        }
-
         public async Task EnsureAsync(Guid id, string name, string email)
         {
             const string sql = """
@@ -65,7 +46,5 @@ namespace TaskBoard.Server.Data
             });
             return affectedRows > 0;
         }
-
-        public Task<bool> DeleteAsync(Guid id) => DeleteByIdAsync("users", id);
     }
 }
