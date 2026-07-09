@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  server:
+    name: Server (.NET)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      # ソリューションには npm 依存の esproj が含まれるため、
+      # サーバー側のプロジェクトだけを明示的に対象にする。
+      - name: Restore
+        run: dotnet restore TaskBoard.Server.Tests/TaskBoard.Server.Tests.csproj
+
+      - name: Build
+        run: dotnet build TaskBoard.Server.Tests/TaskBoard.Server.Tests.csproj --no-restore -c Release
+
+      - name: Test
+        run: dotnet test TaskBoard.Server.Tests/TaskBoard.Server.Tests.csproj --no-build -c Release --verbosity normal
+
+  client:
+    name: Client (React)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: taskboard.client
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: taskboard.client/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck & build
+        run: npm run build
+
+      - name: Test
+        run: npm run test:run

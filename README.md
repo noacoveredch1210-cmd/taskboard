@@ -1,0 +1,187 @@
+# TaskBoard
+
+ドラッグ&ドロップで操作するカンバン形式のタスク管理アプリ。React + ASP.NET Core + PostgreSQL。
+
+**デモ**: https://taskboard-zeta-eight.vercel.app （Google アカウントでログイン）
+
+[![CI](https://github.com/noacoveredch1210-cmd/taskboard/actions/workflows/ci.yml/badge.svg)](https://github.com/noacoveredch1210-cmd/taskboard/actions/workflows/ci.yml)
+
+<!-- TODO: ここに操作の GIF を貼る（ボード作成 → タスク追加 → 列間ドラッグ） -->
+
+---
+
+## 何ができるか
+
+- **ボード**: 複数のボードを作り、列（position）を自由に追加・並べ替え・削除できる
+- **タスク**: 名前・コメント・重要度・期限・カテゴリーを設定し、列間をドラッグして移動
+- **カテゴリー**: 色付きラベルをユーザー単位で管理し、タスクに割り当てる
+- **検索・絞り込み・並べ替え**: タスク名での検索に加え、期限 / 重要度 / カテゴリーでの絞り込みと並べ替え
+- **認証**: Google アカウントによるログイン（Supabase Auth）
+
+## 技術スタック
+
+| 領域 | 使用技術 |
+|---|---|
+| フロントエンド | React 19, TypeScript, Vite, Tailwind CSS v4, dnd-kit |
+| バックエンド | ASP.NET Core (.NET 10), Dapper |
+| データベース | PostgreSQL (Supabase) |
+| 認証 | Supabase Auth (Google OAuth) + JWT 検証 |
+| テスト | xUnit + NSubstitute / Vitest + Testing Library |
+| デプロイ | Vercel (フロント) / Docker (API) |
+
+## アーキテクチャ
+
+```
+┌─────────────┐   ① Google ログイン    ┌──────────────┐
+│   ブラウザ   │ ────────────────────► │ Supabase Auth │
+│   (React)   │ ◄──────────────────── │              │
+└──────┬──────┘   ② JWT (ES256)        └──────┬───────┘
+       │                                      │
+       │ ③ Authorization: Bearer <JWT>        │ ④ JWKS で公開鍵を取得
+       ▼                                      ▼
+┌─────────────────────────────────────────────────────┐
+│           ASP.NET Core Web API                      │
+│                                                     │
+│   Controllers  ─── 認証・所有権の起点（sub クレーム）  │
+│        │                                            │
+│   I*Repository ─── インターフェース越しに DI          │
+│        │                                            │
+│   *Repository  ─── Dapper。所有権を SQL 述語で強制    │
+└────────────────────────┬────────────────────────────┘
+                         │
+                         ▼
+                 ┌───────────────┐
+                 │  PostgreSQL   │
+                 └───────────────┘
+```
+
+クライアントは Supabase から受け取った JWT を `Authorization` ヘッダーに載せるだけで、API は Supabase の JWKS エンドポイントから公開鍵を取得して自前で検証する。API は Supabase の SDK に依存しない。
+
+## 設計上の判断
+
+このプロジェクトで意図的に選んだ設計と、その理由。
+
+### ユーザー ID はトークンからしか取らない
+
+リクエストボディに `userId` が含まれていても無視し、必ず JWT の `sub` クレームを使う。`AuthorizedControllerBase` が `CurrentUserId` として一箇所で提供し、全コントローラーがこれを継承する。クライアントが他人の ID を送りつけてもリソースを作れない。
+
+### 他人のリソースには 403 ではなく 404 を返す
+
+403（禁止）を返すと「その ID のリソースは実在する」という情報が漏れる。存在しない ID と他人の ID を区別できないよう、どちらも 404 に統一している。
+
+### 所有権チェックはアプリ層ではなく SQL に埋める
+
+`if (board.UserId != currentUserId) return Forbid();` のような後付けチェックは、書き忘れると静かに破綻する。代わりに、全クエリの WHERE 句に所有権の述語を置いている。
+
+```sql
+-- TaskRepository.cs
+WHERE id = @Id
+  AND EXISTS (SELECT 1 FROM boards b WHERE b.id = tasks.board_id AND b.user_id = @UserId)
+```
+
+行を取得できた時点で所有権は保証されている。UPDATE / DELETE も同様で、影響行数が 0 なら 404 を返す。
+
+### タスクの並び順は fractional indexing
+
+`order_index` を `double precision` にして、タスクを移動したときは**両隣の中間値**を採番する。これにより、並べ替えのたびに更新するのは動かした 1 行だけで済む（連番方式だと後続の全行を UPDATE する必要がある）。
+
+ただし中間値を取り続けると浮動小数の精度が枯渇する。そこで、中間値が両隣と区別できなくなった場合のみ、そのカラムだけ `0, 1, 2, …` に振り直す安全網を入れている（`useBoards.ts` の `rebalanceColumn`）。
+
+### 入力長の上限はフロントとサーバーの両方で持つ
+
+`Models/TextLimits.cs` と `src/constants/textLimits.ts` に同じ値を置き、フロントは `maxLength` で入力を止め、サーバーは `[MaxLength]` で 400 を返す。フロントのバリデーションは UX のためのものであって、防御ではないため。
+
+### 外部キー列に明示的に索引を張る
+
+PostgreSQL は主キーと UNIQUE には索引を自動生成するが、外部キーの参照元列には作らない。所有権チェックがほぼ全てのクエリで `user_id` / `board_id` を辿るため、索引がないと全走査になる（`db/migrations/0003`）。
+
+## ローカルでの起動
+
+### 前提
+
+- .NET 10 SDK
+- Node.js 20+
+- PostgreSQL（または Supabase プロジェクト）
+
+### データベース
+
+`db/schema.sql` を空のデータベースに流し込む。
+
+```bash
+psql "$DATABASE_URL" -f db/schema.sql
+```
+
+既存のデータベースを更新する場合は `db/migrations/` を番号順に適用する。
+
+### バックエンド
+
+環境変数を設定して起動する。
+
+```bash
+export DATABASE_URL="postgresql://user:password@host:5432/postgres"
+export SUPABASE_URL="https://<project-ref>.supabase.co"
+
+cd TaskBoard.Server
+dotnet run
+```
+
+`http://localhost:5000` で起動し、開発環境では `http://localhost:5000/swagger` で API を確認できる。
+
+> `Properties/launchSettings.json` は `.gitignore` 済み。ローカルではここに環境変数を書いてもよい。
+
+### フロントエンド
+
+```bash
+cd taskboard.client
+npm install
+npm run dev
+```
+
+`http://localhost:5173` で起動する。接続先は `.env.development` で設定する。
+
+> `.env.development` にコミットされている `VITE_SUPABASE_ANON_KEY` は Supabase の publishable key で、ブラウザに配布される前提の公開値。秘匿すべきキーではない（データ保護は JWT 検証とサーバー側の所有権チェックが担う）。
+
+## テスト
+
+```bash
+# サーバー: xUnit (97 tests)
+dotnet test
+
+# クライアント: Vitest
+cd taskboard.client
+npm run test:run
+npm run coverage   # カバレッジ付き
+```
+
+### テスト構成
+
+| 対象 | 方針 |
+|---|---|
+| コントローラー | リポジトリを NSubstitute でモックし、認証・所有権・ステータスコードを検証 |
+| リクエストモデル | `[MaxLength]` 等のバリデーション属性を DataAnnotations で直接検証 |
+| 型ハンドラ | `DateOnly` ⇄ Npgsql の変換を単体で検証 |
+| React コンポーネント | Testing Library でユーザー操作を再現し、DOM の結果を検証 |
+| ドメインロジック | `boardLogic.ts` / `board-data.ts` を純粋関数として単体検証 |
+
+## API
+
+すべてのエンドポイントが認証必須。所有者以外のリソースへのアクセスは 404 を返す。
+
+| メソッド | パス | 説明 |
+|---|---|---|
+| GET | `/api/users/me` | 自分の情報を取得（初回ログイン時に upsert） |
+| PUT | `/api/users/me` | 自分の情報を更新 |
+| GET | `/api/boards` | 自分のボード一覧 |
+| GET | `/api/categories` | 自分のカテゴリー一覧 |
+| GET | `/api/positions?boardId={id}` | 指定ボードの列一覧 |
+| GET | `/api/tasks?boardId={id}` | 指定ボードのタスク一覧 |
+| GET | `/api/{boards\|positions\|tasks\|categories}/{id}` | 単体取得 |
+| POST | `/api/{boards\|positions\|tasks\|categories}` | 作成 |
+| PUT | `/api/{boards\|positions\|tasks\|categories}/{id}` | 更新 |
+| DELETE | `/api/{boards\|positions\|tasks\|categories}/{id}` | 削除 |
+
+## 既知の制約・今後
+
+- **リポジトリ層の統合テストが未整備**。現状コントローラーのテストはリポジトリをモックしているため、SQL 自体は自動テストで実行されていない。Testcontainers で実 PostgreSQL に対する所有権チェックのテストを追加予定。
+- **楽観的更新のロールバックが未実装**。API 呼び出しが失敗した場合、現状はコンソールにログを出すのみで UI を巻き戻していない。
+- **ヘルスチェック / 構造化ログ / レート制限が未実装**。
