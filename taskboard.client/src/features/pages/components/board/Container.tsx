@@ -123,7 +123,11 @@ const Container = ({
         items={tasks.map((task) => task.id)}
         strategy={verticalListSortingStrategy}
       >
-        <div ref={setNodeRef} className="flex flex-col gap-3 flex-1">
+        {/* min-h-0 が無いと flex アイテムは内容の高さを下回れず、コンテナが伸びてしまう */}
+        <div
+          ref={setNodeRef}
+          className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto"
+        >
           {tasks.map((task) => (
             <Task
               key={task.id}

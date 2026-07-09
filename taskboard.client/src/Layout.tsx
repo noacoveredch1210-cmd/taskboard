@@ -78,7 +78,7 @@ const Layout = () => {
             }
           />
         </div>
-        <div className="flex-1 overflow-x-auto">
+        <div className="flex-1 min-h-0 overflow-x-auto">
           <Pages
             userInfo={userInfo}
             boards={boards}

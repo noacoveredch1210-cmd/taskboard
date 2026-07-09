@@ -3,9 +3,11 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
-  closestCorners,
+  pointerWithin,
+  rectIntersection,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
@@ -25,6 +27,20 @@ import {
 import type { BoardInfo } from "../../../../types/boardInfo";
 import type { TaskInfo } from "../../../../types/taskInfo";
 import type { Category } from "../../../../types/category";
+
+// ドロップ先はポインタ位置で判定する。
+// closestCorners だと縦長のコンテナ矩形は四隅がカードから遠く、元カラムのカードが
+// 常に勝ってしまうため、空カラムへ移動できない。
+// カードとコンテナが同時に当たったときはカード(＝挿入位置が決まる方)を優先し、
+// カードの無い余白ではコンテナ(＝末尾へ追加)を採用する。
+const collisionDetection: CollisionDetection = (args) => {
+  const pointer = pointerWithin(args);
+  const collisions = pointer.length > 0 ? pointer : rectIntersection(args);
+  const onTask = collisions.filter(
+    (c) => !String(c.id).startsWith(COLUMN_PREFIX),
+  );
+  return onTask.length > 0 ? onTask : collisions;
+};
 
 type Props = {
   boardInfo: BoardInfo;
@@ -273,14 +289,14 @@ const BoardPage = ({
       </div>
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCorners}
+        collisionDetection={collisionDetection}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
         {/* w-max で内容幅に合わせ、pr-5 の右余白を横スクロール領域に含める
             (親の p-5 は列が overflow で突き抜けるため右端に効かない) */}
-        <div className="flex gap-5 flex-1 w-max pr-5">
+        <div className="flex gap-5 flex-1 min-h-0 w-max pr-5">
           {boardInfo.positions.map((position, idx) => (
             <Container
               key={position.id}

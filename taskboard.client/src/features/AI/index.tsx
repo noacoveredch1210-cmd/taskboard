@@ -48,10 +48,10 @@ const AI = ({ isOpen, toggleAIWindow }: Props) => {
         </button>
       )}
       {isOpen && (
-        <>
+        <div className="flex min-h-0 flex-col gap-3">
           <MessageBox messages={messages} />
           <ChatBox onSend={handleSend} />
-        </>
+        </div>
       )}
     </div>
   );
