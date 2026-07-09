@@ -8,13 +8,14 @@ import { tasksApi } from "../api/tasks";
 import { boardsApi } from "../api/boards";
 import { positionsApi } from "../api/positions";
 import { reportError } from "./reportError";
+import { useToast } from "../components/toast/ToastContext";
 import type { BoardInfo } from "../types/boardInfo";
 import type { TaskInfo } from "../types/taskInfo";
 import type { Position } from "../types/position";
 
 /**
  * board / task / position の状態管理と API 連携をまとめたフック。
- * すべてオプティミスティック更新（即 state 反映 → API 送信 → 失敗はログ）。
+ * すべてオプティミスティック更新（即 state 反映 → API 送信 → 失敗したら巻き戻す）。
  */
 export const useBoards = () => {
   const [boards, setBoards] = useState<BoardInfo[]>([]);
@@ -22,6 +23,7 @@ export const useBoards = () => {
   const [loaded, setLoaded] = useState(false);
   // 初回取得に失敗したか（true のときは呼び出し側でエラー画面を出す）
   const [error, setError] = useState(false);
+  const { showToast } = useToast();
 
   // マウント時に API から board 一覧を取得する
   useEffect(() => {
@@ -33,6 +35,32 @@ export const useBoards = () => {
       })
       .finally(() => setLoaded(true));
   }, []);
+
+  /**
+   * 楽観的更新に対応する API 呼び出しが失敗したときの後始末。
+   * 失敗を通知したうえで、サーバーを真として board 一覧を取り直す。
+   *
+   * 逆操作を書いて巻き戻さないのは、setBoard のように複数の API を並列に投げる操作では
+   * 「どこまで成功したか」で正しい逆操作が変わり、部分的な失敗で状態がずれるため。
+   * 取り直せば、どの経路で失敗しても必ずサーバーの状態に収束する。
+   *
+   * その再取得すら失敗した場合（通信断など）は、操作前の snapshot へ戻す。
+   * 取り直せないほど通信が切れているなら更新もサーバーに届いていないため、
+   * 操作前の state がサーバーの状態と一致しているとみなせる。
+   *
+   * @param snapshot 楽観的更新を適用する前の boards
+   */
+  const handleFailure =
+    (message: string, snapshot: BoardInfo[]) => (err: unknown) => {
+      reportError(message)(err);
+      showToast(message);
+      loadBoards()
+        .then(setBoards)
+        .catch((refetchError) => {
+          reportError("最新の状態を取得できませんでした")(refetchError);
+          setBoards(snapshot);
+        });
+    };
 
   // #region タスクの保存(idが既存なら更新[PUT]、無ければ追加[POST])
   const saveTask = (boardId: string, task: TaskInfo) => {
@@ -53,7 +81,7 @@ export const useBoards = () => {
       );
       tasksApi
         .update(task.id, toUpdateTaskRequest(task))
-        .catch(reportError("タスクの更新に失敗しました"));
+        .catch(handleFailure("タスクの更新に失敗しました", boards));
       return;
     }
 
@@ -71,7 +99,7 @@ export const useBoards = () => {
     );
     tasksApi
       .create(toCreateTaskRequest(newTask, boardId))
-      .catch(reportError("タスクの作成に失敗しました"));
+      .catch(handleFailure("タスクの作成に失敗しました", boards));
   };
   // #endregion
 
@@ -114,7 +142,7 @@ export const useBoards = () => {
         shortName: updates.shortName ?? board.shortName,
         title: updates.title ?? board.title,
       })
-      .catch(reportError("boardの更新に失敗しました"));
+      .catch(handleFailure("boardの更新に失敗しました", boards));
 
     if (updates.positions) {
       const oldIds = new Set(board.positions.map((p) => p.id));
@@ -124,7 +152,7 @@ export const useBoards = () => {
       reassignedTasks.forEach((task) =>
         tasksApi
           .update(task.id, toUpdateTaskRequest(task))
-          .catch(reportError("タスクの付け替えに失敗しました")),
+          .catch(handleFailure("タスクの付け替えに失敗しました", boards)),
       );
 
       // 追加 / 名前・並び順の更新
@@ -132,11 +160,11 @@ export const useBoards = () => {
         if (oldIds.has(p.id)) {
           positionsApi
             .update(p.id, { name: p.name, orderIndex: index })
-            .catch(reportError("positionの更新に失敗しました"));
+            .catch(handleFailure("positionの更新に失敗しました", boards));
         } else {
           positionsApi
             .create({ id: p.id, boardId: id, name: p.name, orderIndex: index })
-            .catch(reportError("positionの作成に失敗しました"));
+            .catch(handleFailure("positionの作成に失敗しました", boards));
         }
       });
 
@@ -146,7 +174,7 @@ export const useBoards = () => {
         .forEach((p) =>
           positionsApi
             .remove(p.id)
-            .catch(reportError("positionの削除に失敗しました")),
+            .catch(handleFailure("positionの削除に失敗しました", boards)),
         );
     }
   };
@@ -176,13 +204,13 @@ export const useBoards = () => {
           ),
         ),
       )
-      .catch(reportError("boardの作成に失敗しました"));
+      .catch(handleFailure("boardの作成に失敗しました", boards));
   };
 
   const deleteBoards = (ids: string[]) => {
     setBoards((prev) => prev.filter((board) => !ids.includes(board.id)));
     ids.forEach((id) =>
-      boardsApi.remove(id).catch(reportError("boardの削除に失敗しました")),
+      boardsApi.remove(id).catch(handleFailure("boardの削除に失敗しました", boards)),
     );
   };
   // #endregion
@@ -215,6 +243,7 @@ export const useBoards = () => {
     boardId: string,
     allTasks: TaskInfo[],
     column: TaskInfo[],
+    snapshot: BoardInfo[],
   ) => {
     const renumbered = new Map(column.map((t, i) => [t.id, i]));
     const nextTasks = allTasks.map((t) => {
@@ -230,18 +259,30 @@ export const useBoards = () => {
     column.forEach((t, i) =>
       tasksApi
         .update(t.id, toUpdateTaskRequest({ ...t, orderIndex: i }))
-        .catch(reportError("並び順の再整列に失敗しました")),
+        .catch(handleFailure("並び順の再整列に失敗しました", snapshot)),
     );
   };
 
-  // 並び替えの確定(dragEnd 等)。動いた 1 件だけ order_index を計算して DB へ保存する
+  /**
+   * 並び替えの確定(dragEnd 等)。動いた 1 件だけ order_index を計算して DB へ保存する。
+   *
+   * @param tasks 移動後のタスク配列
+   * @param tasksBeforeMove 移動前のタスク配列。巻き戻し用のスナップショットに使う。
+   *   ドラッグ中は reorderTasks が state をライブ更新しているため、
+   *   このフックが持つ boards は既に移動後になっており、そのままでは巻き戻せない。
+   */
   const commitTaskMove = (
     boardId: string,
     movedTaskId: string,
     tasks: TaskInfo[],
+    tasksBeforeMove: TaskInfo[],
   ) => {
     const moved = tasks.find((t) => t.id === movedTaskId);
     if (!moved) return;
+
+    const snapshot = boards.map((board) =>
+      board.id !== boardId ? board : { ...board, tasks: tasksBeforeMove },
+    );
 
     const column = tasks.filter((t) => t.positionId === moved.positionId);
     const at = column.findIndex((t) => t.id === movedTaskId);
@@ -249,7 +290,7 @@ export const useBoards = () => {
 
     // 中間値が枯渇していたら、このカラムを振り直して終わり(安全網)
     if (orderIndex === null) {
-      rebalanceColumn(boardId, tasks, column);
+      rebalanceColumn(boardId, tasks, column, snapshot);
       return;
     }
 
@@ -266,7 +307,7 @@ export const useBoards = () => {
     );
     tasksApi
       .update(movedTaskId, toUpdateTaskRequest(updated))
-      .catch(reportError("タスクの並び順の保存に失敗しました"));
+      .catch(handleFailure("タスクの並び順の保存に失敗しました", snapshot));
   };
   // #endregion
 
@@ -283,7 +324,7 @@ export const useBoards = () => {
       ),
     );
     taskIds.forEach((id) =>
-      tasksApi.remove(id).catch(reportError("タスクの削除に失敗しました")),
+      tasksApi.remove(id).catch(handleFailure("タスクの削除に失敗しました", boards)),
     );
   };
   // #endregion

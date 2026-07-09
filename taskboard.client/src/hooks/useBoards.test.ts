@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   updatePosition: vi.fn(),
   removePosition: vi.fn(),
   reportError: vi.fn(),
+  showToast: vi.fn(),
 }));
 
 vi.mock("../api/board-data", async (importOriginal) => {
@@ -46,6 +47,9 @@ vi.mock("../api/positions", () => ({
 vi.mock("./reportError", () => ({
   reportError: (message: string) => (err: unknown) =>
     mocks.reportError(message, err),
+}));
+vi.mock("../components/toast/ToastContext", () => ({
+  useToast: () => ({ showToast: mocks.showToast }),
 }));
 
 import { useBoards } from "./useBoards";
@@ -173,20 +177,92 @@ describe("saveTask", () => {
     expect(result.current.boards[0].tasks?.[0].name).toBe("新");
   });
 
-  it("作成が失敗しても UI は更新されたままで、エラーは報告される", async () => {
+  it("作成に失敗したら通知し、サーバーの状態へ巻き戻す", async () => {
     const failure = new Error("boom");
     mocks.createTask.mockRejectedValue(failure);
-    const { result } = await renderLoaded();
+    // サーバーにはタスクが無い状態を返させる。
+    const { result } = await renderLoaded([board({ tasks: [] })]);
 
     await act(async () => {
       result.current.saveTask("board-1", task({ id: "new" }));
     });
 
-    // 楽観的更新のため UI 上はタスクが残る（現状の仕様）。
-    expect(result.current.boards[0].tasks).toHaveLength(1);
+    // 楽観的に追加したタスクは、再取得によって消える。
+    expect(result.current.boards[0].tasks).toEqual([]);
+    expect(mocks.showToast).toHaveBeenCalledWith("タスクの作成に失敗しました");
     expect(mocks.reportError).toHaveBeenCalledWith(
       "タスクの作成に失敗しました",
       failure,
+    );
+  });
+
+});
+
+describe("通信が切れていて再取得もできない場合", () => {
+  it("作成を、操作前の状態へ巻き戻す", async () => {
+    mocks.createTask.mockRejectedValue(new Error("boom"));
+    const { result } = await renderLoaded([
+      board({ tasks: [task({ id: "existing" })] }),
+    ]);
+
+    // 巻き戻しのための再取得も失敗させる（通信断）。
+    const refetchFailure = new Error("offline");
+    mocks.loadBoards.mockRejectedValue(refetchFailure);
+
+    await act(async () => {
+      result.current.saveTask("board-1", task({ id: "new" }));
+    });
+
+    // 再取得できなくても、操作前のタスクだけが残る。
+    expect(result.current.boards[0].tasks?.map((t) => t.id)).toEqual([
+      "existing",
+    ]);
+    expect(mocks.showToast).toHaveBeenCalledWith("タスクの作成に失敗しました");
+    expect(mocks.reportError).toHaveBeenCalledWith(
+      "最新の状態を取得できませんでした",
+      refetchFailure,
+    );
+  });
+
+  it("board の削除を、操作前の状態へ巻き戻す", async () => {
+    mocks.removeBoard.mockRejectedValue(new Error("boom"));
+    const { result } = await renderLoaded([board({ id: "board-1" })]);
+    mocks.loadBoards.mockRejectedValue(new Error("offline"));
+
+    await act(async () => {
+      result.current.deleteBoards(["board-1"]);
+    });
+
+    expect(result.current.boards.map((b) => b.id)).toEqual(["board-1"]);
+  });
+
+  it("タスクの移動を、ドラッグ開始時点の並びへ巻き戻す", async () => {
+    mocks.updateTask.mockRejectedValue(new Error("boom"));
+    const before = [
+      task({ id: "a", positionId: "pos-1", orderIndex: 0 }),
+      task({ id: "moved", positionId: "pos-1", orderIndex: 1 }),
+    ];
+    const { result } = await renderLoaded([board({ tasks: before })]);
+    mocks.loadBoards.mockRejectedValue(new Error("offline"));
+
+    // ドラッグ中のライブ反映（reorderTasks）で state は既に移動後になっている。
+    const after = [
+      task({ id: "moved", positionId: "pos-2", orderIndex: 1 }),
+      task({ id: "a", positionId: "pos-1", orderIndex: 0 }),
+    ];
+    await act(async () => {
+      result.current.reorderTasks("board-1", after);
+    });
+    await act(async () => {
+      result.current.commitTaskMove("board-1", "moved", after, before);
+    });
+
+    // クロージャの boards ではなく、渡された「移動前の並び」へ戻る。
+    const tasks = result.current.boards[0].tasks ?? [];
+    expect(tasks.map((t) => t.id)).toEqual(["a", "moved"]);
+    expect(tasks.find((t) => t.id === "moved")?.positionId).toBe("pos-1");
+    expect(mocks.showToast).toHaveBeenCalledWith(
+      "タスクの並び順の保存に失敗しました",
     );
   });
 });
@@ -196,7 +272,8 @@ describe("commitTaskMove（orderIndex の採番）", () => {
   const commit = async (tasks: TaskInfo[], movedId: string) => {
     const { result } = await renderLoaded([board({ tasks })]);
     act(() => {
-      result.current.commitTaskMove("board-1", movedId, tasks);
+      // 採番の検証では巻き戻しは起きないため、移動前後で同じ配列を渡してよい。
+      result.current.commitTaskMove("board-1", movedId, tasks, tasks);
     });
     return result;
   };
@@ -279,7 +356,7 @@ describe("commitTaskMove（中間値が枯渇したときのリバランス）",
 
     const { result } = await renderLoaded([board({ tasks })]);
     act(() => {
-      result.current.commitTaskMove("board-1", "moved", tasks);
+      result.current.commitTaskMove("board-1", "moved", tasks, tasks);
     });
 
     // pos-1 の 3 件だけが 0,1,2 で保存される。
@@ -484,15 +561,18 @@ describe("削除", () => {
     expect(mocks.removeTask.mock.calls.map(([id]) => id)).toEqual(["t1", "t3"]);
   });
 
-  it("削除が失敗してもエラーを報告して続行する", async () => {
+  it("削除に失敗したら通知し、消した board を再取得で復帰させる", async () => {
     const failure = new Error("boom");
     mocks.removeBoard.mockRejectedValue(failure);
-    const { result } = await renderLoaded();
+    const { result } = await renderLoaded([board({ id: "board-1" })]);
 
     await act(async () => {
       result.current.deleteBoards(["board-1"]);
     });
 
+    // 楽観的に消した board が、サーバーの状態から復活する。
+    expect(result.current.boards.map((b) => b.id)).toEqual(["board-1"]);
+    expect(mocks.showToast).toHaveBeenCalledWith("boardの削除に失敗しました");
     expect(mocks.reportError).toHaveBeenCalledWith(
       "boardの削除に失敗しました",
       failure,

@@ -28,6 +28,7 @@ type Props = {
     boardId: string,
     movedTaskId: string,
     tasks: TaskInfo[],
+    tasksBeforeMove: TaskInfo[],
   ) => void;
   onDeleteTasks: (boardId: string, taskIds: string[]) => void;
 };

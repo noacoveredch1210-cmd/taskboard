@@ -207,7 +207,12 @@ describe("BoardPage（クリック操作）", () => {
       "board-2",
       "a",
       expect.any(Array),
+      expect.any(Array),
     );
+
+    // 4 番目の引数は巻き戻し用の「移動前の並び」で、A はまだ p1 にいる。
+    const tasksBeforeMove = onCommitTaskMove.mock.calls[0][3] as TaskInfo[];
+    expect(tasksBeforeMove.find((t) => t.id === "a")?.positionId).toBe("p1");
   });
 
   it("末尾コンテナで選択して削除すると onDeleteTasks を呼ぶ", async () => {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -52,6 +52,7 @@ type Props = {
     boardId: string,
     movedTaskId: string,
     tasks: TaskInfo[],
+    tasksBeforeMove: TaskInfo[],
   ) => void;
   onDeleteTasks: (boardId: string, taskIds: string[]) => void;
 };
@@ -67,6 +68,8 @@ const BoardPage = ({
 }: Props) => {
   // ドラッグ中のタスク(DragOverlay表示用)
   const [activeTask, setActiveTask] = useState<TaskInfo | null>(null);
+  // ドラッグ開始時点のタスクの並び(保存に失敗したときの巻き戻し先)
+  const tasksBeforeDragRef = useRef<TaskInfo[]>([]);
 
   // #region 最後のコンテナのタスク選択・削除
   const [isSelectMode, setIsSelectMode] = useState(false);
@@ -205,6 +208,9 @@ const BoardPage = ({
   const handleDragStart = (event: DragStartEvent) => {
     const id = String(event.active.id);
     setActiveTask(boardInfo.tasks?.find((t) => t.id === id) ?? null);
+    // dragOver で state をライブ更新してしまうため、保存が失敗したときの
+    // 巻き戻し先として、ドラッグ開始時点の並びを控えておく。
+    tasksBeforeDragRef.current = boardInfo.tasks ?? [];
   };
 
   // ドラッグ中はカーソル位置にライブ追従(元は詰まり、移動先のカーソル位置に空く)。
@@ -245,7 +251,12 @@ const BoardPage = ({
     // 現在の state をそのまま保存対象にする（並びは確定済み）
     const finalTasks = next ?? boardInfo.tasks ?? [];
     // 動いた 1 件の order_index を確定して DB へ保存する
-    onCommitTaskMove(boardInfo.id, movedTaskId, finalTasks);
+    onCommitTaskMove(
+      boardInfo.id,
+      movedTaskId,
+      finalTasks,
+      tasksBeforeDragRef.current,
+    );
   };
 
   // #region 次のpositionの先頭に移る
@@ -254,6 +265,9 @@ const BoardPage = ({
     // 見つからない or すでに最後のpositionなら何もしない
     if (idx === -1 || idx >= boardInfo.positions.length - 1) return;
     const destPosId = boardInfo.positions[idx + 1].id;
+
+    // 保存に失敗したときの巻き戻し先（state を書き換える前に控える）
+    const tasksBeforeMove = boardInfo.tasks ?? [];
 
     const columns = buildColumns(boardInfo.tasks ?? [], positionIds);
 
@@ -270,7 +284,7 @@ const BoardPage = ({
     const next = flattenColumns(columns, positionIds);
     onReorderTasks(boardInfo.id, next);
     // 動いた 1 件の order_index を確定して DB へ保存する
-    onCommitTaskMove(boardInfo.id, task.id, next);
+    onCommitTaskMove(boardInfo.id, task.id, next, tasksBeforeMove);
   };
   // #endregion
 
