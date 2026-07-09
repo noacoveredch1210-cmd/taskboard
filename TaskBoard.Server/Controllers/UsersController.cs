@@ -61,6 +61,9 @@ namespace TaskBoard.Server.Controllers
             {
                 using var doc = JsonDocument.Parse(metaJson);
                 var root = doc.RootElement;
+                // TryGetProperty はオブジェクト以外に対して InvalidOperationException を投げる。
+                if (root.ValueKind != JsonValueKind.Object) return null;
+
                 foreach (var key in new[] { "full_name", "name" })
                 {
                     if (root.TryGetProperty(key, out var value)
