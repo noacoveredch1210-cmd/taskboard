@@ -22,14 +22,14 @@ namespace TaskBoard.Server.Data
             return await Connection.QueryAsync<Category>(sql, new { UserId = userId });
         }
 
-        public async Task<Category?> GetByIdAsync(Guid id)
+        public async Task<Category?> GetByIdAsync(Guid id, Guid userId)
         {
             var sql = $"""
             SELECT {Columns}
             FROM categories
-            WHERE id = @Id
+            WHERE id = @Id AND user_id = @UserId
             """;
-            return await Connection.QuerySingleOrDefaultAsync<Category>(sql, new { Id = id });
+            return await Connection.QuerySingleOrDefaultAsync<Category>(sql, new { Id = id, UserId = userId });
         }
 
         public async Task CreateAsync(CreateCategoryRequest request)
@@ -41,23 +41,24 @@ namespace TaskBoard.Server.Data
             await Connection.ExecuteAsync(sql, request);
         }
 
-        public async Task<bool> UpdateAsync(Guid id, UpdateCategoryRequest request)
+        public async Task<bool> UpdateAsync(Guid id, Guid userId, UpdateCategoryRequest request)
         {
             const string sql = """
             UPDATE categories
             SET name = @Name,
                 color = @Color
-            WHERE id = @Id
+            WHERE id = @Id AND user_id = @UserId
             """;
             var affectedRows = await Connection.ExecuteAsync(sql, new
             {
                 Id = id,
+                UserId = userId,
                 request.Name,
                 request.Color
             });
             return affectedRows > 0;
         }
 
-        public Task<bool> DeleteAsync(Guid id) => DeleteByIdAsync("categories", id);
+        public Task<bool> DeleteAsync(Guid id, Guid userId) => DeleteOwnedAsync("categories", id, userId);
     }
 }

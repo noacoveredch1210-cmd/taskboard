@@ -10,16 +10,17 @@ namespace TaskBoard.Server.Tests.Controllers
     public class TasksControllerTests
     {
         private readonly ITaskRepository _repository = Substitute.For<ITaskRepository>();
+        private readonly Guid _userId = Guid.NewGuid();
 
         private TasksController CreateController() =>
-            new TasksController(_repository).WithUser(Guid.NewGuid());
+            new TasksController(_repository).WithUser(_userId);
 
         [Fact]
         public async Task GetByBoard_ReturnsTasksOfRequestedBoard()
         {
             var boardId = Guid.NewGuid();
             var tasks = new[] { new TaskItem { Id = Guid.NewGuid(), BoardId = boardId } };
-            _repository.GetByBoardIdAsync(boardId).Returns(tasks);
+            _repository.GetByBoardIdAsync(boardId, _userId).Returns(tasks);
 
             var result = await CreateController().GetByBoard(boardId);
 
@@ -28,11 +29,22 @@ namespace TaskBoard.Server.Tests.Controllers
         }
 
         [Fact]
-        public async Task GetById_ReturnsTask_WhenFound()
+        public async Task GetByBoard_ScopesLookupToAuthenticatedUser()
+        {
+            var boardId = Guid.NewGuid();
+
+            await CreateController().GetByBoard(boardId);
+
+            // 他人の board の boardId を渡されても、所有者 ID 付きで問い合わせる。
+            await _repository.Received(1).GetByBoardIdAsync(boardId, _userId);
+        }
+
+        [Fact]
+        public async Task GetById_ReturnsTask_WhenOwnedByAuthenticatedUser()
         {
             var id = Guid.NewGuid();
             var task = new TaskItem { Id = id };
-            _repository.GetByIdAsync(id).Returns(task);
+            _repository.GetByIdAsync(id, _userId).Returns(task);
 
             var result = await CreateController().GetById(id);
 
@@ -41,9 +53,9 @@ namespace TaskBoard.Server.Tests.Controllers
         }
 
         [Fact]
-        public async Task GetById_ReturnsNotFound_WhenMissing()
+        public async Task GetById_ReturnsNotFound_WhenMissingOrNotOwned()
         {
-            _repository.GetByIdAsync(Arg.Any<Guid>()).Returns((TaskItem?)null);
+            _repository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns((TaskItem?)null);
 
             var result = await CreateController().GetById(Guid.NewGuid());
 
@@ -62,11 +74,12 @@ namespace TaskBoard.Server.Tests.Controllers
                 OrderIndex = 1.5,
             };
             var created = new TaskItem { Id = request.Id, BoardId = request.BoardId };
-            _repository.GetByIdAsync(request.Id).Returns(created);
+            _repository.CreateAsync(request, _userId).Returns(true);
+            _repository.GetByIdAsync(request.Id, _userId).Returns(created);
 
             var result = await CreateController().Create(request);
 
-            await _repository.Received(1).CreateAsync(request);
+            await _repository.Received(1).CreateAsync(request, _userId);
             var createdAt = Assert.IsType<CreatedAtActionResult>(result);
             Assert.Equal(nameof(TasksController.GetById), createdAt.ActionName);
             Assert.Equal(request.Id, createdAt.RouteValues!["id"]);
@@ -74,21 +87,35 @@ namespace TaskBoard.Server.Tests.Controllers
         }
 
         [Fact]
-        public async Task Update_ReturnsNoContent_WhenRowAffected()
+        public async Task Create_ReturnsNotFound_WhenBoardIsNotOwnedOrAssignmentIsInvalid()
+        {
+            var request = new CreateTaskRequest { Id = Guid.NewGuid(), BoardId = Guid.NewGuid() };
+            _repository.CreateAsync(request, _userId).Returns(false);
+
+            var result = await CreateController().Create(request);
+
+            Assert.IsType<NotFoundResult>(result);
+            // 作成に失敗した以上、読み戻しも行わない。
+            await _repository.DidNotReceive().GetByIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>());
+        }
+
+        [Fact]
+        public async Task Update_ScopesWriteToAuthenticatedUser()
         {
             var id = Guid.NewGuid();
             var request = new UpdateTaskRequest { Name = "Renamed", OrderIndex = 2 };
-            _repository.UpdateAsync(id, request).Returns(true);
+            _repository.UpdateAsync(id, _userId, request).Returns(true);
 
             var result = await CreateController().Update(id, request);
 
             Assert.IsType<NoContentResult>(result);
+            await _repository.Received(1).UpdateAsync(id, _userId, request);
         }
 
         [Fact]
-        public async Task Update_ReturnsNotFound_WhenNoRowAffected()
+        public async Task Update_ReturnsNotFound_WhenMissingOrNotOwned()
         {
-            _repository.UpdateAsync(Arg.Any<Guid>(), Arg.Any<UpdateTaskRequest>()).Returns(false);
+            _repository.UpdateAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<UpdateTaskRequest>()).Returns(false);
 
             var result = await CreateController().Update(Guid.NewGuid(), new UpdateTaskRequest());
 
@@ -96,20 +123,21 @@ namespace TaskBoard.Server.Tests.Controllers
         }
 
         [Fact]
-        public async Task Delete_ReturnsNoContent_WhenRowAffected()
+        public async Task Delete_ScopesDeleteToAuthenticatedUser()
         {
             var id = Guid.NewGuid();
-            _repository.DeleteAsync(id).Returns(true);
+            _repository.DeleteAsync(id, _userId).Returns(true);
 
             var result = await CreateController().Delete(id);
 
             Assert.IsType<NoContentResult>(result);
+            await _repository.Received(1).DeleteAsync(id, _userId);
         }
 
         [Fact]
-        public async Task Delete_ReturnsNotFound_WhenNoRowAffected()
+        public async Task Delete_ReturnsNotFound_WhenMissingOrNotOwned()
         {
-            _repository.DeleteAsync(Arg.Any<Guid>()).Returns(false);
+            _repository.DeleteAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(false);
 
             var result = await CreateController().Delete(Guid.NewGuid());
 

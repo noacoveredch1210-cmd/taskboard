@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using TaskBoard.Server.Data;
 using TaskBoard.Server.Models;
 
@@ -22,10 +22,11 @@ namespace TaskBoard.Server.Controllers
             return Ok(categories);
         }
 
+        // 他人の category は存在を伏せるため 404 を返す（403 だと id の実在が漏れる）。
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(Guid id)
         {
-            var category = await _repository.GetByIdAsync(id);
+            var category = await _repository.GetByIdAsync(id, CurrentUserId);
             if (category is null) return NotFound();
             return Ok(category);
         }
@@ -36,14 +37,14 @@ namespace TaskBoard.Server.Controllers
             // 所有者は必ずトークンのユーザーに固定する（body の値は信用しない）。
             request.UserId = CurrentUserId;
             await _repository.CreateAsync(request);
-            var created = await _repository.GetByIdAsync(request.Id);
+            var created = await _repository.GetByIdAsync(request.Id, CurrentUserId);
             return CreatedAtAction(nameof(GetById), new { id = request.Id }, created);
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(Guid id, [FromBody] UpdateCategoryRequest request)
         {
-            var success = await _repository.UpdateAsync(id, request);
+            var success = await _repository.UpdateAsync(id, CurrentUserId, request);
             if (!success) return NotFound();
             return NoContent();
         }
@@ -51,7 +52,7 @@ namespace TaskBoard.Server.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(Guid id)
         {
-            var success = await _repository.DeleteAsync(id);
+            var success = await _repository.DeleteAsync(id, CurrentUserId);
             if (!success) return NotFound();
             return NoContent();
         }

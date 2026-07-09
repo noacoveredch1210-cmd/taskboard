@@ -22,14 +22,14 @@ namespace TaskBoard.Server.Data
             return await Connection.QueryAsync<Board>(sql, new { UserId = userId });
         }
 
-        public async Task<Board?> GetByIdAsync(Guid id)
+        public async Task<Board?> GetByIdAsync(Guid id, Guid userId)
         {
             var sql = $"""
             SELECT {Columns}
             FROM boards
-            WHERE id = @Id
+            WHERE id = @Id AND user_id = @UserId
             """;
-            return await Connection.QuerySingleOrDefaultAsync<Board>(sql, new { Id = id });
+            return await Connection.QuerySingleOrDefaultAsync<Board>(sql, new { Id = id, UserId = userId });
         }
 
         public async Task CreateAsync(CreateBoardRequest request)
@@ -41,23 +41,24 @@ namespace TaskBoard.Server.Data
             await Connection.ExecuteAsync(sql, request);
         }
 
-        public async Task<bool> UpdateAsync(Guid id, UpdateBoardRequest request)
+        public async Task<bool> UpdateAsync(Guid id, Guid userId, UpdateBoardRequest request)
         {
             const string sql = """
             UPDATE boards
             SET short_name = @ShortName,
                 title = @Title
-            WHERE id = @Id
+            WHERE id = @Id AND user_id = @UserId
             """;
             var affectedRows = await Connection.ExecuteAsync(sql, new
             {
                 Id = id,
+                UserId = userId,
                 request.ShortName,
                 request.Title
             });
             return affectedRows > 0;
         }
 
-        public Task<bool> DeleteAsync(Guid id) => DeleteByIdAsync("boards", id);
+        public Task<bool> DeleteAsync(Guid id, Guid userId) => DeleteOwnedAsync("boards", id, userId);
     }
 }
