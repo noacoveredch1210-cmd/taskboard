@@ -19,6 +19,8 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: "./src/test/setup.ts",
     css: true,
+    // e2e/ は Playwright が実行する（vitest が拾うと import で落ちる）。
+    exclude: ["**/node_modules/**", "**/dist/**", "e2e/**"],
     // 実際の認証情報に依存せずモジュールを読み込めるようダミー値を注入する
     // （lib/supabase.ts は未設定だと throw するため）
     env: {

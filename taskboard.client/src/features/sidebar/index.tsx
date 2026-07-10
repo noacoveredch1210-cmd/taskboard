@@ -43,6 +43,7 @@ const Sidebar = ({
       />
       {boards.map((board, idx) => (
         <BoardButton
+          key={board.id}
           shortName={board.shortName}
           isOpen={openingPageIndex === idx}
           isOpenSidebar={isOpen}

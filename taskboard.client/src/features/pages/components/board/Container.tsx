@@ -126,6 +126,7 @@ const Container = ({
         {/* min-h-0 が無いと flex アイテムは内容の高さを下回れず、コンテナが伸びてしまう */}
         <div
           ref={setNodeRef}
+          data-testid={columnId}
           className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto"
         >
           {tasks.map((task) => (

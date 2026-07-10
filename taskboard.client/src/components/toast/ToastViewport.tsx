@@ -20,6 +20,7 @@ const ToastViewport = ({ toasts, onDismiss }: Props) => {
         <div
           key={toast.id}
           role="status"
+          data-testid="toast"
           className="flex items-center gap-3 rounded border border-red-200 bg-white px-4 py-3 shadow-lg"
         >
           <span className="material-symbols-outlined text-red-500">error</span>

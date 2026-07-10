@@ -70,6 +70,7 @@ const Task = ({
           style={sortableStyle}
           {...attributes}
           {...listeners}
+          data-testid={`task-${task.id}`}
           className="border rounded flex relative group hover:shadow-lg touch-none flex-1 min-w-0"
           onClick={() =>
             isSelectMode ? onToggleSelect?.(task.id) : setOpenTaskModal(true)

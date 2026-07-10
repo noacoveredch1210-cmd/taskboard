@@ -15,6 +15,12 @@ dist-ssr
 # テストカバレッジの生成物
 coverage
 
+# Playwright の生成物
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

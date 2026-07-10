@@ -157,10 +157,15 @@ npm run dev
 # サーバー: xUnit (97 tests)
 dotnet test
 
-# クライアント: Vitest
+# クライアント: Vitest (222 tests)
 cd taskboard.client
 npm run test:run
 npm run coverage   # カバレッジ付き
+
+# E2E: Playwright (11 tests)
+npx playwright install chromium   # 初回のみ
+npm run e2e
+npm run e2e:ui                    # 画面を見ながら実行・デバッグ
 ```
 
 ### テスト構成
@@ -173,8 +178,19 @@ npm run coverage   # カバレッジ付き
 | React コンポーネント | Testing Library でユーザー操作を再現し、DOM の結果を検証 |
 | 状態管理フック | `useBoards` を `renderHook` で駆動し、API モジュールをモックして呼び出しを検証 |
 | ドメインロジック | `boardLogic.ts` / `board-data.ts` を純粋関数として単体検証 |
+| E2E | 実ブラウザでドラッグ&ドロップ、モーダルの Esc / 背景クリック、失敗時の巻き戻しを検証 |
 
 カバレッジは `include: ["src/**/*.{ts,tsx}"]` を指定し、テストから一度も import されないファイルも分母に含めている。
+
+### E2E の範囲
+
+Google OAuth は自動化できず、サーバーは Supabase の JWKS で JWT を検証するためトークンも偽造できない。そこで E2E は**クライアントを実ブラウザで動かす**ところまでを対象とし、`localStorage` にセッションを仕込み、`/api/**` を Playwright の `page.route` で差し替えている。実サーバー・実 DB には接続しないため、CI にシークレットが要らず安定して回る。
+
+この境界は意図的なもので、レイヤーごとにテストを置き分けている。
+
+- **ドラッグ&ドロップと `<dialog>` の挙動** → E2E（jsdom では再現できない）
+- **並び順の採番・巻き戻しのロジック** → Vitest
+- **SQL と所有権チェック** → サーバー側の統合テスト（未整備。下記参照）
 
 ## API
 
@@ -196,5 +212,5 @@ npm run coverage   # カバレッジ付き
 ## 既知の制約・今後
 
 - **リポジトリ層の統合テストが未整備**。現状コントローラーのテストはリポジトリをモックしているため、SQL 自体は自動テストで実行されていない。Testcontainers で実 PostgreSQL に対する所有権チェックのテストを追加予定。
-- **E2E テストが無い**。ログインから列間ドラッグまでを Playwright で通したい。
+- **E2E は API をスタブしている**。実サーバー・実 DB を通すフルスタック E2E は未整備。
 - **ヘルスチェック / 構造化ログ / レート制限が未実装**。
