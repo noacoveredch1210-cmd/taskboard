@@ -69,10 +69,6 @@ const AI = ({ isOpen, toggleAIWindow }: Props) => {
 
   return (
     <div
-      role={isOpen ? "" : "button"}
-      onClick={() => {
-        if (!isOpen) toggleAIWindow();
-      }}
       className={`${isOpen ? "w-90" : "w-10"} bg-white shadow h-full p-3 flex flex-col`}
     >
       {isOpen ? (
@@ -90,9 +86,12 @@ const AI = ({ isOpen, toggleAIWindow }: Props) => {
           <CloseButton className="hover:bg-gray-200" onClick={toggleAIWindow} />
         </>
       ) : (
-        <div className="px-1 pt-1 rounded absolute top-1 right-1 hover:bg-gray-200">
+        <button
+          className="px-1 pt-1 rounded absolute top-1 right-1 hover:bg-gray-200"
+          onClick={toggleAIWindow}
+        >
           <span className="material-symbols-outlined">support_agent</span>
-        </div>
+        </button>
       )}
       {isOpen && (
         <div className="flex flex-1 min-h-0 flex-col gap-3">
