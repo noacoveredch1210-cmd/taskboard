@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 type Props = { onSend: (text: string) => void; disabled?: boolean };
 
@@ -13,6 +13,11 @@ const ChatBox = ({ onSend, disabled = false }: Props) => {
     textarea.style.height = "auto";
     textarea.style.height = `${textarea.scrollHeight}px`;
   }, [input]);
+
+  // 送信が終わって入力可能に戻ったら、続けて打てるようフォーカスを戻す
+  useEffect(() => {
+    if (!disabled) textareaRef.current?.focus();
+  }, [disabled]);
 
   const handleSend = () => {
     if (disabled || !input.trim()) return;

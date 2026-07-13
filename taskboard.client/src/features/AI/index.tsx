@@ -12,6 +12,11 @@ export type Message = { id: string; role: "user" | "assistant"; text: string };
 const GREETING =
   "TaskBoard の使い方をご案内します。ボードやタスクの操作など、お気軽にどうぞ。";
 
+/** 会話の初期状態（案内メッセージ 1 件）を作る。 */
+const initialMessages = (): Message[] => [
+  { id: crypto.randomUUID(), role: "assistant", text: GREETING },
+];
+
 /** 失敗の種類に応じてユーザー向けの文言を選ぶ。 */
 const errorText = (err: unknown): string => {
   if (err instanceof ApiError && err.status === 429) {
@@ -21,11 +26,15 @@ const errorText = (err: unknown): string => {
 };
 
 const AI = ({ isOpen, toggleAIWindow }: Props) => {
-  const [messages, setMessages] = useState<Message[]>([
-    { id: crypto.randomUUID(), role: "assistant", text: GREETING },
-  ]);
+  const [messages, setMessages] = useState<Message[]>(initialMessages);
   // 送信中は二重送信を防ぎ、考え中の表示を出す
   const [isSending, setIsSending] = useState(false);
+
+  // 会話を初期状態に戻す（応答待ちの間は戻さない）
+  const handleReset = () => {
+    if (isSending) return;
+    setMessages(initialMessages());
+  };
 
   const handleSend = async (text: string) => {
     const trimmed = text.trim();
@@ -60,10 +69,22 @@ const AI = ({ isOpen, toggleAIWindow }: Props) => {
 
   return (
     <div
-      className={`${isOpen ? "w-70" : "w-10"} bg-white shadow h-full p-3 flex flex-col`}
+      className={`${isOpen ? "w-90" : "w-10"} bg-white shadow h-full p-3 flex flex-col`}
     >
       {isOpen ? (
-        <CloseButton className="hover:bg-gray-200" onClick={toggleAIWindow} />
+        <>
+          <button
+            type="button"
+            aria-label="会話をリセット"
+            title="会話をリセット"
+            onClick={handleReset}
+            disabled={isSending}
+            className="absolute top-1 right-9 px-1 pt-1 rounded hover:bg-gray-200 disabled:opacity-50"
+          >
+            <span className="material-symbols-outlined">restart_alt</span>
+          </button>
+          <CloseButton className="hover:bg-gray-200" onClick={toggleAIWindow} />
+        </>
       ) : (
         <button
           className="px-1 pt-1 rounded absolute top-1 right-1 hover:bg-gray-200"
@@ -73,7 +94,7 @@ const AI = ({ isOpen, toggleAIWindow }: Props) => {
         </button>
       )}
       {isOpen && (
-        <div className="flex min-h-0 flex-col gap-3">
+        <div className="flex flex-1 min-h-0 flex-col gap-3">
           <MessageBox messages={messages} pending={isSending} />
           <ChatBox onSend={handleSend} disabled={isSending} />
         </div>

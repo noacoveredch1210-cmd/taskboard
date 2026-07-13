@@ -125,6 +125,25 @@ describe("AI", () => {
     ).toBeInTheDocument();
   });
 
+  it("リセットで会話を初期状態（案内のみ）に戻す", async () => {
+    mocks.chat.mockResolvedValue("回答です");
+    render(<AI isOpen={true} toggleAIWindow={vi.fn()} />);
+
+    await user.type(
+      screen.getByPlaceholderText("メッセージを入力..."),
+      "質問です",
+    );
+    await user.click(button("arrow_upward"));
+    expect(await screen.findByText("回答です")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "会話をリセット" }));
+
+    // 案内だけが残り、これまでのやり取りは消える
+    expect(screen.getAllByText(GREETING)).toHaveLength(1);
+    expect(screen.queryByText("質問です")).not.toBeInTheDocument();
+    expect(screen.queryByText("回答です")).not.toBeInTheDocument();
+  });
+
   it("空白のみのメッセージは送信しない", async () => {
     render(<AI isOpen={true} toggleAIWindow={vi.fn()} />);
     await user.type(screen.getByPlaceholderText("メッセージを入力..."), "   ");

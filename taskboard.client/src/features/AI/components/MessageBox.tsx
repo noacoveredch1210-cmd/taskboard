@@ -15,7 +15,8 @@ const MessageBox = ({ messages, pending = false }: Props) => {
   return (
     <div
       ref={scrollRef}
-      className="pt-9 flex-1 min-h-0 overflow-y-auto flex flex-col gap-3"
+      // mr-8: スクロールバーを右上の×ボタンの左へ逃がして重なりを防ぐ
+      className="pt-1 mt-8 flex-1 min-h-0 overflow-y-auto flex flex-col gap-3"
     >
       {messages.map((message) => (
         <div

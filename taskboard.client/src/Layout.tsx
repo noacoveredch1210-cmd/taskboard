@@ -97,7 +97,7 @@ const Layout = () => {
           />
         </div>
       </div>
-      <div className={openAIWindow ? "w-70" : "w-10"}>
+      <div className={openAIWindow ? "w-90" : "w-10"}>
         <AI isOpen={openAIWindow} toggleAIWindow={toggleAIWindow} />
       </div>
       {showFirstBoardModal && (
