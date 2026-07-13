@@ -81,6 +81,26 @@ namespace TaskBoard.Server.IntegrationTests.Repositories
             Assert.Equal(0, await CountAsync(connection, "boards"));
         }
 
+        [SkippableFact]
+        public async Task 退会でユーザー行を消すとboardもcategoryも連鎖削除される()
+        {
+            RequireDocker();
+            using var connection = await Fixture.OpenConnectionAsync();
+            await SeedUserAsync(connection, User, "user@example.com");
+            await new BoardRepository(connection).CreateAsync(new CreateBoardRequest
+            { Id = Guid.NewGuid(), UserId = User, ShortName = "B", Title = "T" });
+            await new CategoryRepository(connection).CreateAsync(new CreateCategoryRequest
+            { Id = Guid.NewGuid(), UserId = User, Name = "仕事", Color = "#ff0000" });
+
+            // 退会：アプリ上の users 行を削除する（UserRepository.DeleteAsync と同じ経路）。
+            var deleted = await new UserRepository(connection).DeleteAsync(User);
+
+            Assert.True(deleted);
+            Assert.Equal(0, await CountAsync(connection, "users"));
+            Assert.Equal(0, await CountAsync(connection, "boards"));
+            Assert.Equal(0, await CountAsync(connection, "categories"));
+        }
+
         private static async Task<int> CountAsync(IDbConnection connection, string table) =>
             await connection.ExecuteScalarAsync<int>($"SELECT COUNT(*) FROM {table}");
     }

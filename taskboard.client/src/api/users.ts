@@ -7,4 +7,7 @@ export const usersApi = {
 
   updateMe: (request: UpdateUserRequest) =>
     api.put<void>("/users/me", request),
+
+  /** 退会。自分のアプリデータ（ボード・タスク・カテゴリー）を削除する。 */
+  deleteMe: () => api.delete<void>("/users/me"),
 };

@@ -4,6 +4,7 @@ import type { UserInfo } from "../../../../types/userInfo";
 import UserData from "./UserData";
 import BoardView from "./board/BoardView";
 import LogoutButton from "./LogoutButton";
+import DeleteAccountButton from "./DeleteAccountButton";
 import CategoryView from "./category/CategoryView";
 import type { Category } from "../../../../types/category";
 import type { Position } from "../../../../types/position";
@@ -53,6 +54,10 @@ const HomePage = ({
         onSetCategory={onSetCategory}
         onDeleteCategories={onDeleteCategories}
       />
+      {/* 退会は稀で不可逆な操作なので、一番下に控えめに置く */}
+      <div className="mt-10 border-t pt-4">
+        <DeleteAccountButton />
+      </div>
     </div>
   );
 };

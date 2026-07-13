@@ -39,6 +39,17 @@ namespace TaskBoard.Server.Controllers
             return NoContent();
         }
 
+        // DELETE /api/users/me
+        // 退会。アプリ上のデータを消す。認証（auth.users）は残るため、フロントは削除後に
+        // サインアウトする（再ログインすると空アカウントとして作り直される）。
+        [HttpDelete("me")]
+        public async Task<IActionResult> DeleteMe()
+        {
+            // 既に無くても最終状態は同じなので、成否によらず 204 を返す（冪等）。
+            await _repository.DeleteAsync(CurrentUserId);
+            return NoContent();
+        }
+
         /// <summary>
         /// Supabase JWT の user_metadata（JSON 文字列クレーム）から表示名を取り出す。
         /// Google ログインでは full_name / name に氏名が入る。

@@ -124,5 +124,26 @@ namespace TaskBoard.Server.Tests.Controllers
             Assert.IsType<NotFoundResult>(result);
         }
 
+        [Fact]
+        public async Task DeleteMe_DeletesAuthenticatedUserOnly()
+        {
+            _repository.DeleteAsync(_userId).Returns(true);
+
+            var result = await CreateController().DeleteMe();
+
+            Assert.IsType<NoContentResult>(result);
+            await _repository.Received(1).DeleteAsync(_userId);
+        }
+
+        [Fact]
+        public async Task DeleteMe_ReturnsNoContent_EvenWhenAlreadyGone()
+        {
+            // 冪等：行が無くても最終状態は同じなので 204。
+            _repository.DeleteAsync(Arg.Any<Guid>()).Returns(false);
+
+            var result = await CreateController().DeleteMe();
+
+            Assert.IsType<NoContentResult>(result);
+        }
     }
 }

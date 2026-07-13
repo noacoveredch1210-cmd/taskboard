@@ -30,6 +30,15 @@ namespace TaskBoard.Server.Data
             await Connection.ExecuteAsync(sql, new { Id = id, Name = name, Email = email });
         }
 
+        public async Task<bool> DeleteAsync(Guid id)
+        {
+            // users を消すと boards→positions/tasks と categories が FK の
+            // ON DELETE CASCADE で連鎖削除される（db/schema.sql 参照）。
+            const string sql = "DELETE FROM users WHERE id = @Id";
+            var affectedRows = await Connection.ExecuteAsync(sql, new { Id = id });
+            return affectedRows > 0;
+        }
+
         public async Task<bool> UpdateAsync(Guid id, UpdateUserRequest request)
         {
             const string sql = """

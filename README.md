@@ -17,7 +17,7 @@
 - **カテゴリー**: 色付きラベルをユーザー単位で管理し、タスクに割り当てる
 - **検索・絞り込み・並べ替え**: タスク名での検索に加え、期限 / 重要度 / カテゴリーでの絞り込みと並べ替え
 - **使い方ガイド AI**: サイドの AI パネルで、アプリの操作方法を対話で質問できる（Google Gemini）
-- **認証**: Google アカウントによるログイン（Supabase Auth）
+- **認証・退会**: Google アカウントによるログイン（Supabase Auth）。退会でアプリ上の全データを削除できる
 
 ## 技術スタック
 
@@ -117,6 +117,12 @@ WHERE id = @Id
 
 公開デモは誰でもログインできるので、AI エンドポイントは無防備だとクレジットを浪費される。対策は多層で、(1) 無料枠の Gemini を使い最悪でも課金されない、(2) `[Authorize]` でログイン必須、(3) AI 専用の厳しいレート制限（10 回/分/ユーザー）、(4) リクエストの件数・文字数を上限で弾く。上流のエラー本文（キーや内部情報を含みうる）はクライアントに出さず、一律 503 に丸める。
 
+### 退会は「データ削除」に留め、service_role キーを持ち込まない
+
+退会は `public.users` の自分の行を削除するだけで、FK の `ON DELETE CASCADE` により boards・positions・tasks・categories がまとめて消える（`DELETE /api/users/me`）。削除後にクライアントがサインアウトする。
+
+認証側（`auth.users`）まで消す完全な退会には Supabase の Admin API と **service_role キー**が要る。このキーは行レベルセキュリティを全てバイパスできるため、公開デモのサーバーに置くのは被害範囲が大きすぎる。そこで「アプリデータの削除」に範囲を絞り、強力なキーを持ち込まない設計にした（再ログインすると空アカウントとして作り直される）。
+
 ### liveness と readiness を分ける
 
 `/health` は依存先を見ず、`/health/ready` だけが DB への接続を確かめる。
@@ -180,14 +186,14 @@ npm run dev
 ## テスト
 
 ```bash
-# サーバー単体: xUnit (108 tests)
+# サーバー単体: xUnit (110 tests)
 dotnet test TaskBoard.Server.Tests
 
-# サーバー統合: Testcontainers + PostgreSQL (14 tests)
+# サーバー統合: Testcontainers + PostgreSQL (15 tests)
 # Docker が必要。無い環境では自動スキップされる。
 dotnet test TaskBoard.Server.IntegrationTests
 
-# クライアント: Vitest (225 tests)
+# クライアント: Vitest (231 tests)
 cd taskboard.client
 npm run test:run
 npm run coverage   # カバレッジ付き
