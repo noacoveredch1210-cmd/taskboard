@@ -1,16 +1,16 @@
 import { useEffect, useRef } from "react";
 import type { Message } from "../index";
 
-type Props = { messages: Message[] };
+type Props = { messages: Message[]; pending?: boolean };
 
-const MessageBox = ({ messages }: Props) => {
+const MessageBox = ({ messages, pending = false }: Props) => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // 新しいメッセージが増えたら最新(最下部)まで送る
+  // 新しいメッセージが増えた/考え中になったら最新(最下部)まで送る
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages]);
+  }, [messages, pending]);
 
   return (
     <div
@@ -31,6 +31,13 @@ const MessageBox = ({ messages }: Props) => {
           </div>
         </div>
       ))}
+      {pending && (
+        <div className="self-start" aria-label="考え中">
+          <div className="rounded bg-gray-100 px-3 py-2">
+            <span className="animate-pulse">考え中…</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

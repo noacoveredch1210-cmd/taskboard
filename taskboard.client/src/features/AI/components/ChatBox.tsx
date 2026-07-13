@@ -1,8 +1,8 @@
 import { useLayoutEffect, useRef, useState } from "react";
 
-type Props = { onSend: (text: string) => void };
+type Props = { onSend: (text: string) => void; disabled?: boolean };
 
-const ChatBox = ({ onSend }: Props) => {
+const ChatBox = ({ onSend, disabled = false }: Props) => {
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -15,7 +15,7 @@ const ChatBox = ({ onSend }: Props) => {
   }, [input]);
 
   const handleSend = () => {
-    if (!input.trim()) return;
+    if (disabled || !input.trim()) return;
     onSend(input);
     setInput("");
   };
@@ -24,10 +24,11 @@ const ChatBox = ({ onSend }: Props) => {
     <div className="rounded border flex items-center justify-between gap-2 p-2">
       <textarea
         ref={textareaRef}
-        className="focus:outline-none focus:ring-0 flex-1 min-w-0 px-2 resize-none max-h-32"
+        className="focus:outline-none focus:ring-0 flex-1 min-w-0 px-2 resize-none max-h-32 disabled:opacity-50"
         placeholder="メッセージを入力..."
         rows={1}
         value={input}
+        disabled={disabled}
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={(e) => {
           // Enterで送信、Shift+Enterは改行。IME変換中のEnterは無視
@@ -39,8 +40,9 @@ const ChatBox = ({ onSend }: Props) => {
       />
       <button
         type="button"
-        className="btn-base bg-primary px-1 shrink-0 hover:bg-primary-hover"
+        className="btn-base bg-primary px-1 shrink-0 hover:bg-primary-hover disabled:opacity-50"
         onClick={handleSend}
+        disabled={disabled}
       >
         <span className="material-symbols-outlined">arrow_upward</span>
       </button>

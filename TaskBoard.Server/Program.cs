@@ -8,6 +8,7 @@ using System.Security.Claims;
 using System.Threading.RateLimiting;
 using TaskBoard.Server.Data;
 using TaskBoard.Server.Health;
+using TaskBoard.Server.Services;
 
 Dapper.SqlMapper.AddTypeHandler(new DateOnlyTypeHandler());
 Dapper.SqlMapper.AddTypeHandler(new NullableDateOnlyTypeHandler());
@@ -86,6 +87,13 @@ builder.Services.AddScoped<IPositionRepository, PositionRepository>();
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 
+// 使い方ガイド用の AI アシスタント（Gemini）。API キーは GEMINI_API_KEY から実行時に読む。
+builder.Services.AddHttpClient<IAiAssistant, GeminiAssistant>(client =>
+{
+    client.BaseAddress = new Uri("https://generativelanguage.googleapis.com/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
 // liveness（プロセスが生きているか）と readiness（依存先に繋がるか）を分ける。
 // コンテナの再起動判定に readiness を使うと、DB の一時的な不調でアプリが落ち続ける。
 builder.Services.AddHealthChecks()
@@ -135,6 +143,23 @@ builder.Services.AddRateLimiter(options =>
             new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 100,
+                Window = TimeSpan.FromSeconds(RateLimitWindowSeconds),
+                QueueLimit = 0,
+            });
+    });
+
+    // AI は外部の有料/枠制限つきサービスを叩くため、ユーザー単位でさらに厳しく絞る
+    // （グローバル制限と併用され、こちらが先に効く）。
+    options.AddPolicy("ai", context =>
+    {
+        var partitionKey = context.User.FindFirstValue("sub")
+            ?? context.Connection.RemoteIpAddress?.ToString()
+            ?? "unknown";
+
+        return RateLimitPartition.GetFixedWindowLimiter(partitionKey, _ =>
+            new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
                 Window = TimeSpan.FromSeconds(RateLimitWindowSeconds),
                 QueueLimit = 0,
             });
