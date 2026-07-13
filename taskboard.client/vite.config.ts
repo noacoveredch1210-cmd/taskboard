@@ -2,10 +2,56 @@
 import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "vite";
 import plugin from "@vitejs/plugin-react";
+import { VitePWA } from "vite-plugin-pwa";
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [plugin()],
+  plugins: [
+    plugin(),
+    VitePWA({
+      registerType: "autoUpdate",
+      includeAssets: ["favicon.ico"],
+      useCredentials: true,
+      manifest: {
+        name: "タスクボード",
+        short_name: "タスクボード",
+        description: "タスク管理ができる PWA",
+        lang: "ja",
+        start_url: "/",
+        scope: "/",
+        display: "standalone",
+        orientation: "portrait",
+        background_color: "#efefef",
+        theme_color: "#4F7C7E",
+        icons: [
+          // 透過PNG（角丸背景なし／あり両方OK）
+          { src: "/pwa-192x192.png", sizes: "192x192", type: "image/png" },
+          { src: "/pwa-512x512.png", sizes: "512x512", type: "image/png" },
+
+          // Android で綺麗に切り抜く maskable
+          {
+            src: "/pwa-192x192-maskable.png",
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "maskable",
+          },
+          {
+            src: "/pwa-512x512-maskable.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable",
+          },
+        ],
+      },
+      // オフライン/更新戦略（後述）
+      workbox: {
+        globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
+        // ログアウト時のリダイレクトを阻害しないよう設定
+        navigateFallback: null,
+        globIgnores: ["**/index.html"],
+      },
+    }),
+  ],
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
