@@ -67,38 +67,38 @@ const AI = ({ isOpen, toggleAIWindow }: Props) => {
     }
   };
 
+  // 閉じているとき: 細い帯そのものを「開く」ボタンにする。
+  // 当たり判定が広く、キーボードでも開ける（div + onClick より正しい）。
+  if (!isOpen) {
+    return (
+      <button
+        type="button"
+        aria-label="AI アシスタントを開く"
+        onClick={toggleAIWindow}
+        className="w-10 h-full bg-white shadow flex justify-center pt-2 hover:bg-gray-200"
+      >
+        <span className="material-symbols-outlined">support_agent</span>
+      </button>
+    );
+  }
+
   return (
-    <div
-      className={`${isOpen ? "w-90" : "w-10"} bg-white shadow h-full p-3 flex flex-col`}
-    >
-      {isOpen ? (
-        <>
-          <button
-            type="button"
-            aria-label="会話をリセット"
-            title="会話をリセット"
-            onClick={handleReset}
-            disabled={isSending}
-            className="absolute top-1 right-9 px-1 pt-1 rounded hover:bg-gray-200 disabled:opacity-50"
-          >
-            <span className="material-symbols-outlined">restart_alt</span>
-          </button>
-          <CloseButton className="hover:bg-gray-200" onClick={toggleAIWindow} />
-        </>
-      ) : (
-        <button
-          className="px-1 pt-1 rounded absolute top-1 right-1 hover:bg-gray-200"
-          onClick={toggleAIWindow}
-        >
-          <span className="material-symbols-outlined">support_agent</span>
-        </button>
-      )}
-      {isOpen && (
-        <div className="flex flex-1 min-h-0 flex-col gap-3">
-          <MessageBox messages={messages} pending={isSending} />
-          <ChatBox onSend={handleSend} disabled={isSending} />
-        </div>
-      )}
+    <div className="w-90 bg-white shadow h-full p-3 flex flex-col relative">
+      <button
+        type="button"
+        aria-label="会話をリセット"
+        title="会話をリセット"
+        onClick={handleReset}
+        disabled={isSending}
+        className="absolute top-1 right-9 px-1 pt-1 rounded hover:bg-gray-200 disabled:opacity-50"
+      >
+        <span className="material-symbols-outlined">restart_alt</span>
+      </button>
+      <CloseButton className="hover:bg-gray-200" onClick={toggleAIWindow} />
+      <div className="flex flex-1 min-h-0 flex-col gap-3">
+        <MessageBox messages={messages} pending={isSending} />
+        <ChatBox onSend={handleSend} disabled={isSending} />
+      </div>
     </div>
   );
 };

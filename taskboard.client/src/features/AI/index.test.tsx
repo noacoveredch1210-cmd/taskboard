@@ -45,6 +45,15 @@ describe("AI", () => {
     expect(toggle).toHaveBeenCalledTimes(1);
   });
 
+  it("閉じているときは開くボタン（ロール button）で toggleAIWindow を呼ぶ", async () => {
+    const toggle = vi.fn();
+    render(<AI isOpen={false} toggleAIWindow={toggle} />);
+    await user.click(
+      screen.getByRole("button", { name: "AI アシスタントを開く" }),
+    );
+    expect(toggle).toHaveBeenCalledTimes(1);
+  });
+
   it("送信すると会話履歴をAPIへ渡し、応答を表示して入力欄をクリアする", async () => {
     mocks.chat.mockResolvedValue("ボードは左上の＋から作成できます。");
     render(<AI isOpen={true} toggleAIWindow={vi.fn()} />);
