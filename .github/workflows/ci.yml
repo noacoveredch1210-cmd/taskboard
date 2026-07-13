@@ -28,6 +28,28 @@ jobs:
       - name: Test
         run: dotnet test TaskBoard.Server.Tests/TaskBoard.Server.Tests.csproj --no-build -c Release --verbosity normal
 
+  server-integration:
+    name: Server integration (Testcontainers + PostgreSQL)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      # GitHub ホストの ubuntu ランナーには Docker が同梱されているため、
+      # Testcontainers が PostgreSQL コンテナを起動できる（ローカルで Docker が
+      # 無い場合は各テストが自動でスキップされる）。
+      - name: Restore
+        run: dotnet restore TaskBoard.Server.IntegrationTests/TaskBoard.Server.IntegrationTests.csproj
+
+      - name: Build
+        run: dotnet build TaskBoard.Server.IntegrationTests/TaskBoard.Server.IntegrationTests.csproj --no-restore -c Release
+
+      - name: Test
+        run: dotnet test TaskBoard.Server.IntegrationTests/TaskBoard.Server.IntegrationTests.csproj --no-build -c Release --verbosity normal
+
   client:
     name: Client (React)
     runs-on: ubuntu-latest

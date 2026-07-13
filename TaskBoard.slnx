@@ -3,6 +3,7 @@
     <Build />
     <Deploy />
   </Project>
+  <Project Path="TaskBoard.Server.IntegrationTests/TaskBoard.Server.IntegrationTests.csproj" />
   <Project Path="TaskBoard.Server.Tests/TaskBoard.Server.Tests.csproj" />
   <Project Path="TaskBoard.Server/TaskBoard.Server.csproj" />
 </Solution>
