@@ -97,9 +97,9 @@ const TaskModal = ({
         <div>
           <textarea
             ref={textareaRef}
-            rows={3}
+            rows={8}
             maxLength={TEXT_LIMITS.taskComment}
-            className="border bg-white rounded w-full resize-none p-2 max-h-40 overflow-auto"
+            className="border bg-white rounded w-full resize-none p-2 max-h-80 overflow-auto text-sm"
             placeholder="説明・コメントを入力..."
             value={draftTask.comment}
             onChange={(e) => {

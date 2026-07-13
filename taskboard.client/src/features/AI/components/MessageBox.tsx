@@ -24,7 +24,7 @@ const MessageBox = ({ messages, pending = false }: Props) => {
           className={message.role === "user" ? "self-end" : "self-start"}
         >
           <div
-            className={`rounded px-3 py-2 max-w-55 wrap-break-word whitespace-pre-wrap ${
+            className={`rounded px-3 py-2 max-w-70 wrap-break-word whitespace-pre-wrap ${
               message.role === "user" ? "bg-primary-light" : "bg-gray-100"
             }`}
           >
