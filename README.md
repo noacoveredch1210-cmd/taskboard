@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/noacoveredch1210-cmd/taskboard/actions/workflows/ci.yml/badge.svg)](https://github.com/noacoveredch1210-cmd/taskboard/actions/workflows/ci.yml)
 
-<!-- TODO: ここに操作の GIF を貼る（ボード作成 → タスク追加 → 列間ドラッグ） -->
+![TaskBoard の操作デモ](docs/demo.gif)
 
 ---
 
