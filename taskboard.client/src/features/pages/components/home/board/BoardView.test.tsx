@@ -5,7 +5,7 @@ import BoardView from "./BoardView";
 import type { BoardInfo } from "../../../../../types/boardInfo";
 
 const boards: BoardInfo[] = [
-  { id: "b1", shortName: "AA", title: "ボードA", positions: [] },
+  { id: "b1", shortName: "AA", title: "ボードA", role: "owner", positions: [], categories: [] },
 ];
 
 const renderView = (over = {}) => {

@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-// 画面の出し分けだけを見たいので、各ページは差し替える。
 vi.mock("./components/home/HomePage", () => ({
   default: () => <div>ホーム</div>,
 }));
@@ -15,8 +14,22 @@ import Pages from "./index";
 import type { BoardInfo } from "../../types/boardInfo";
 
 const boards: BoardInfo[] = [
-  { id: "b1", shortName: "A", title: "ボードA", positions: [] },
-  { id: "b2", shortName: "B", title: "ボードB", positions: [] },
+  {
+    id: "b1",
+    shortName: "A",
+    title: "ボードA",
+    role: "owner",
+    positions: [],
+    categories: [],
+  },
+  {
+    id: "b2",
+    shortName: "B",
+    title: "ボードB",
+    role: "owner",
+    positions: [],
+    categories: [],
+  },
 ];
 
 const renderPages = (openingPageIndex: number | null) =>
@@ -24,7 +37,6 @@ const renderPages = (openingPageIndex: number | null) =>
     <Pages
       userInfo={{ name: "山田太郎", email: "taro@example.com" }}
       boards={boards}
-      categories={[]}
       openingPageIndex={openingPageIndex}
       onSaveTask={vi.fn()}
       onSetCategory={vi.fn()}
@@ -36,6 +48,8 @@ const renderPages = (openingPageIndex: number | null) =>
       onReorderTasks={vi.fn()}
       onCommitTaskMove={vi.fn()}
       onDeleteTasks={vi.fn()}
+      onGetShareLink={vi.fn()}
+      onJoinBoard={vi.fn()}
     />,
   );
 

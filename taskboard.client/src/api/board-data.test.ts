@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // ローダーは API モジュールを直接呼ぶため、それぞれを差し替える。
 const mocks = vi.hoisted(() => ({
   getMineBoards: vi.fn(),
-  getMineCategories: vi.fn(),
+  getCategoriesByBoard: vi.fn(),
   getMe: vi.fn(),
   getPositionsByBoard: vi.fn(),
   getTasksByBoard: vi.fn(),
@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("./boards", () => ({ boardsApi: { getMine: mocks.getMineBoards } }));
 vi.mock("./categories", () => ({
-  categoriesApi: { getMine: mocks.getMineCategories },
+  categoriesApi: { getByBoard: mocks.getCategoriesByBoard },
 }));
 vi.mock("./users", () => ({ usersApi: { getMe: mocks.getMe } }));
 vi.mock("./positions", () => ({
@@ -21,7 +21,6 @@ vi.mock("./tasks", () => ({ tasksApi: { getByBoard: mocks.getTasksByBoard } }));
 
 import {
   loadBoards,
-  loadCategories,
   loadUser,
   toCreateTaskRequest,
   toUpdateTaskRequest,
@@ -52,6 +51,7 @@ const boardDto = (over: Partial<BoardDto> = {}): BoardDto => ({
   userId: "user-1",
   shortName: "BD",
   title: "ボード",
+  role: "owner",
   createdAt: "2026-01-01T00:00:00Z",
   ...over,
 });
@@ -81,6 +81,8 @@ const taskDto = (over: Partial<TaskDto> = {}): TaskDto => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // loadBoards は board ごとにカテゴリーも引く。既定は空にしておく。
+  mocks.getCategoriesByBoard.mockResolvedValue([]);
 });
 
 describe("loadBoards", () => {
@@ -183,27 +185,37 @@ describe("loadBoards", () => {
   });
 });
 
-describe("loadCategories", () => {
-  it("DTO を id / name / color に絞って返す", async () => {
-    mocks.getMineCategories.mockResolvedValue([
+describe("loadBoards（カテゴリー）", () => {
+  it("board ごとにカテゴリーを取得し、id / name / color に絞って載せる", async () => {
+    mocks.getMineBoards.mockResolvedValue([boardDto({ id: "board-1" })]);
+    mocks.getPositionsByBoard.mockResolvedValue([]);
+    mocks.getTasksByBoard.mockResolvedValue([]);
+    mocks.getCategoriesByBoard.mockResolvedValue([
       {
         id: "cat-1",
-        userId: "user-1",
+        boardId: "board-1",
         name: "仕事",
         color: "#ff0000",
         createdAt: "2026-01-01T00:00:00Z",
       },
     ]);
 
-    await expect(loadCategories()).resolves.toEqual([
+    const [board] = await loadBoards();
+
+    expect(mocks.getCategoriesByBoard).toHaveBeenCalledWith("board-1");
+    expect(board.categories).toEqual([
       { id: "cat-1", name: "仕事", color: "#ff0000" },
     ]);
   });
 
-  it("カテゴリーが無ければ空配列", async () => {
-    mocks.getMineCategories.mockResolvedValue([]);
+  it("role を BoardInfo に引き継ぐ", async () => {
+    mocks.getMineBoards.mockResolvedValue([boardDto({ role: "member" })]);
+    mocks.getPositionsByBoard.mockResolvedValue([]);
+    mocks.getTasksByBoard.mockResolvedValue([]);
 
-    await expect(loadCategories()).resolves.toEqual([]);
+    const [board] = await loadBoards();
+
+    expect(board.role).toBe("member");
   });
 });
 

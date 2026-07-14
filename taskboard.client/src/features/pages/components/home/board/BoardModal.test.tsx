@@ -63,7 +63,9 @@ describe("BoardModal（編集）", () => {
       id: "b1",
       shortName: "OLD",
       title: "旧ボード",
+      role: "owner",
       positions: [{ id: "p1", name: "Todo" }],
+      categories: [],
     };
     const onSetBoard = vi.fn();
     render(

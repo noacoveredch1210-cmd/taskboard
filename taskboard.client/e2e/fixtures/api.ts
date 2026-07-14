@@ -2,7 +2,12 @@ import type { Page, Route } from "@playwright/test";
 import { TEST_USER } from "./auth";
 
 export type ApiState = {
-  boards: { id: string; shortName: string; title: string }[];
+  boards: {
+    id: string;
+    shortName: string;
+    title: string;
+    role: "owner" | "member";
+  }[];
   positions: {
     id: string;
     boardId: string;
@@ -45,7 +50,9 @@ export const TASK_B = "30000000-0000-4000-8000-00000000000b";
 
 /** タスク 2 件（どちらも Todo 列）を持つボード 1 枚。 */
 export const defaultState = (): ApiState => ({
-  boards: [{ id: BOARD_ID, shortName: "E2E", title: "E2Eボード" }],
+  boards: [
+    { id: BOARD_ID, shortName: "E2E", title: "E2Eボード", role: "owner" },
+  ],
   positions: [
     { id: POS_TODO, boardId: BOARD_ID, name: "Todo", orderIndex: 0 },
     { id: POS_DONE, boardId: BOARD_ID, name: "Done", orderIndex: 1 },

@@ -5,17 +5,12 @@ import UserData from "./UserData";
 import BoardView from "./board/BoardView";
 import LogoutButton from "./LogoutButton";
 import DeleteAccountButton from "./DeleteAccountButton";
-import CategoryView from "./category/CategoryView";
-import type { Category } from "../../../../types/category";
+import JoinBoardButton from "./JoinBoardButton";
 import type { Position } from "../../../../types/position";
 
 type Props = {
   userInfo: UserInfo;
   boards: BoardInfo[];
-  categories: Category[];
-  onSetCategory: (categoryId: string, updates: Partial<Category>) => void;
-  onCreateCategory: (name: string, color: string) => void;
-  onDeleteCategories: (ids: string[]) => void;
   onSetBoard: (id: string, updates: Partial<BoardInfo>) => void;
   onCreateBoard: (
     title: string,
@@ -23,23 +18,22 @@ type Props = {
     positions: Position[],
   ) => void;
   onDeleteBoards: (ids: string[]) => void;
+  onJoinBoard: (token: string) => Promise<"member" | "requested" | null>;
 };
 
 const HomePage = ({
   userInfo,
   boards,
-  categories,
-  onSetCategory,
-  onCreateCategory,
-  onDeleteCategories,
   onSetBoard,
   onCreateBoard,
   onDeleteBoards,
+  onJoinBoard,
 }: Props) => {
   return (
     <div className="p-10 flex flex-col gap-2">
-      <div className="flex pb-5 flex-wrap gap-5">
+      <div className="flex pb-5 flex-wrap items-center gap-5">
         <UserData userInfo={userInfo} />
+        <JoinBoardButton onJoinBoard={onJoinBoard} />
         <LogoutButton />
       </div>
       <BoardView
@@ -47,12 +41,6 @@ const HomePage = ({
         onSetBoard={onSetBoard}
         onCreateBoard={onCreateBoard}
         onDeleteBoards={onDeleteBoards}
-      />
-      <CategoryView
-        categories={categories}
-        onCreateCategory={onCreateCategory}
-        onSetCategory={onSetCategory}
-        onDeleteCategories={onDeleteCategories}
       />
       {/* 退会は稀で不可逆な操作なので、一番下に控えめに置く */}
       <div className="mt-10 border-t pt-4">

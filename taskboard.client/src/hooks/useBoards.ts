@@ -7,11 +7,13 @@ import {
 import { tasksApi } from "../api/tasks";
 import { boardsApi } from "../api/boards";
 import { positionsApi } from "../api/positions";
+import { categoriesApi } from "../api/categories";
 import { reportError } from "./reportError";
 import { useToast } from "../components/toast/ToastContext";
 import type { BoardInfo } from "../types/boardInfo";
 import type { TaskInfo } from "../types/taskInfo";
 import type { Position } from "../types/position";
+import type { Category } from "../types/category";
 
 /**
  * board / task / position の状態管理と API 連携をまとめたフック。
@@ -187,7 +189,8 @@ export const useBoards = () => {
     const boardId = crypto.randomUUID();
     setBoards((prev) => [
       ...prev,
-      { id: boardId, shortName, title, positions, tasks: [] },
+      // 作成者は owner。カテゴリーは空で始まる。
+      { id: boardId, shortName, title, role: "owner", positions, categories: [], tasks: [] },
     ]);
 
     boardsApi
@@ -329,6 +332,92 @@ export const useBoards = () => {
   };
   // #endregion
 
+  // #region カテゴリー（ボード単位）
+  /** 指定ボードの categories を差し替える小さなヘルパー。 */
+  const patchCategories = (
+    boardId: string,
+    update: (current: Category[]) => Category[],
+  ) =>
+    setBoards((prev) =>
+      prev.map((board) =>
+        board.id !== boardId
+          ? board
+          : { ...board, categories: update(board.categories) },
+      ),
+    );
+
+  const createCategory = (boardId: string, name: string, color: string) => {
+    const id = crypto.randomUUID();
+    patchCategories(boardId, (categories) => [...categories, { id, name, color }]);
+    categoriesApi
+      .create({ id, boardId, name, color })
+      .catch(handleFailure("カテゴリーの作成に失敗しました", boards));
+  };
+
+  const setCategory = (
+    boardId: string,
+    categoryId: string,
+    updates: Partial<Category>,
+  ) => {
+    const board = boards.find((b) => b.id === boardId);
+    const current = board?.categories.find((c) => c.id === categoryId);
+    if (!current) return;
+    const merged = { ...current, ...updates };
+
+    patchCategories(boardId, (categories) =>
+      categories.map((c) => (c.id === categoryId ? merged : c)),
+    );
+    categoriesApi
+      .update(categoryId, { name: merged.name, color: merged.color })
+      .catch(handleFailure("カテゴリーの更新に失敗しました", boards));
+  };
+
+  const deleteCategories = (boardId: string, ids: string[]) => {
+    patchCategories(boardId, (categories) =>
+      categories.filter((c) => !ids.includes(c.id)),
+    );
+    ids.forEach((id) =>
+      categoriesApi
+        .remove(id)
+        .catch(handleFailure("カテゴリーの削除に失敗しました", boards)),
+    );
+  };
+  // #endregion
+
+  // #region 共有
+  /** 共有トークンを取得し、参加用の URL を組み立てて返す（オーナーのみ）。 */
+  const getShareLink = async (boardId: string): Promise<string> => {
+    const token = await boardsApi.getShareToken(boardId);
+    return `${window.location.origin}/?join=${token}`;
+  };
+
+  /**
+   * 共有トークンで参加リクエストを出す（承認制）。
+   * 既にメンバーなら一覧を取り直して "member" を返す。承認待ちなら "requested"。失敗なら null。
+   */
+  const joinBoard = async (
+    token: string,
+  ): Promise<"member" | "requested" | null> => {
+    try {
+      const res = await boardsApi.join(token);
+      if (res.status === "member") {
+        const fresh = await loadBoards();
+        setBoards(fresh);
+        showToast("すでに参加しているボードです。");
+        return "member";
+      }
+      showToast(
+        "参加リクエストを送信しました。オーナーの承認をお待ちください。",
+      );
+      return "requested";
+    } catch (e) {
+      reportError("ボードへの参加に失敗しました")(e);
+      showToast("ボードに参加できませんでした。リンクを確認してください。");
+      return null;
+    }
+  };
+  // #endregion
+
   return {
     boards,
     loaded,
@@ -340,5 +429,10 @@ export const useBoards = () => {
     reorderTasks,
     commitTaskMove,
     deleteTasks,
+    createCategory,
+    setCategory,
+    deleteCategories,
+    getShareLink,
+    joinBoard,
   };
 };

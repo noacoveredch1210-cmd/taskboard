@@ -10,12 +10,15 @@ import type { Position } from "../../types/position";
 type Props = {
   userInfo: UserInfo;
   boards: BoardInfo[];
-  categories: Category[];
   openingPageIndex: number | null;
   onSaveTask: (boardId: string, task: TaskInfo) => void;
-  onSetCategory: (categoryId: string, updates: Partial<Category>) => void;
-  onCreateCategory: (name: string, color: string) => void;
-  onDeleteCategories: (ids: string[]) => void;
+  onSetCategory: (
+    boardId: string,
+    categoryId: string,
+    updates: Partial<Category>,
+  ) => void;
+  onCreateCategory: (boardId: string, name: string, color: string) => void;
+  onDeleteCategories: (boardId: string, ids: string[]) => void;
   onSetBoard: (id: string, updates: Partial<BoardInfo>) => void;
   onCreateBoard: (
     title: string,
@@ -31,12 +34,13 @@ type Props = {
     tasksBeforeMove: TaskInfo[],
   ) => void;
   onDeleteTasks: (boardId: string, taskIds: string[]) => void;
+  onGetShareLink: (boardId: string) => Promise<string>;
+  onJoinBoard: (token: string) => Promise<"member" | "requested" | null>;
 };
 
 const Pages = ({
   userInfo,
   boards,
-  categories,
   openingPageIndex,
   onSaveTask,
   onSetCategory,
@@ -48,6 +52,8 @@ const Pages = ({
   onReorderTasks,
   onCommitTaskMove,
   onDeleteTasks,
+  onGetShareLink,
+  onJoinBoard,
 }: Props) => {
   return (
     <>
@@ -56,25 +62,24 @@ const Pages = ({
           <HomePage
             userInfo={userInfo}
             boards={boards}
-            categories={categories}
-            onSetCategory={onSetCategory}
-            onCreateCategory={onCreateCategory}
-            onDeleteCategories={onDeleteCategories}
             onSetBoard={onSetBoard}
             onCreateBoard={onCreateBoard}
             onDeleteBoards={onDeleteBoards}
+            onJoinBoard={onJoinBoard}
           />
         </div>
       ) : (
         <div className="h-full">
           <BoardPage
             boardInfo={boards[openingPageIndex]}
-            categories={categories}
             onSaveTask={onSaveTask}
             onCreateCategory={onCreateCategory}
+            onSetCategory={onSetCategory}
+            onDeleteCategories={onDeleteCategories}
             onReorderTasks={onReorderTasks}
             onCommitTaskMove={onCommitTaskMove}
             onDeleteTasks={onDeleteTasks}
+            onGetShareLink={onGetShareLink}
           />
         </div>
       )}

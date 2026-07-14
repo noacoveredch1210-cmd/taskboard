@@ -1,4 +1,4 @@
-import { api } from "./client";
+import { api, toQuery } from "./client";
 import { createResource } from "./resource";
 import type {
   CategoryDto,
@@ -11,6 +11,7 @@ export const categoriesApi = {
     "/categories",
   ),
 
-  /** 認証ユーザー自身のカテゴリー一覧（対象ユーザーはサーバーがトークンから決定する）。 */
-  getMine: () => api.get<CategoryDto[]>("/categories"),
+  /** 指定ボードのカテゴリー一覧（そのボードのメンバーのみ取得可）。 */
+  getByBoard: (boardId: string) =>
+    api.get<CategoryDto[]>(`/categories${toQuery({ boardId })}`),
 };

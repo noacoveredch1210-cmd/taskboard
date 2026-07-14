@@ -5,8 +5,8 @@ import Sidebar from "./index";
 import type { BoardInfo } from "../../types/boardInfo";
 
 const boards: BoardInfo[] = [
-  { id: "b1", shortName: "AA", title: "ボードA", positions: [] },
-  { id: "b2", shortName: "BB", title: "ボードB", positions: [] },
+  { id: "b1", shortName: "AA", title: "ボードA", role: "owner", positions: [], categories: [] },
+  { id: "b2", shortName: "BB", title: "ボードB", role: "owner", positions: [], categories: [] },
 ];
 
 const button = (label: string) =>

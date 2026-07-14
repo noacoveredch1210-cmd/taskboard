@@ -13,7 +13,16 @@ export type BoardDto = {
   userId: string;
   shortName: string;
   title: string;
+  /** リクエストしたユーザーのこのボードでの役割 */
+  role: "owner" | "member";
   createdAt: string;
+};
+
+export type BoardMemberDto = {
+  userId: string;
+  name: string;
+  email: string;
+  role: "owner" | "member";
 };
 
 export type TaskDto = {
@@ -33,7 +42,7 @@ export type TaskDto = {
 
 export type CategoryDto = {
   id: string;
-  userId: string;
+  boardId: string;
   name: string;
   color: string;
   createdAt: string;
@@ -92,6 +101,7 @@ export type UpdateTaskRequest = {
 
 export type CreateCategoryRequest = {
   id: string;
+  boardId: string;
   name: string;
   color: string;
 };

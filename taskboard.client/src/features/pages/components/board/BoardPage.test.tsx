@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+// カテゴリー管理・共有ツールバーは BoardPage の関心事ではない（別途テスト）。
+// useToast など文脈依存を持ち込まないようスタブ化する。
+vi.mock("./BoardToolbar", () => ({ default: () => <div>ツールバー</div> }));
+
 import BoardPage from "./BoardPage";
 import type { BoardInfo } from "../../../../types/boardInfo";
 import type { TaskInfo } from "../../../../types/taskInfo";
@@ -35,7 +39,9 @@ const boardInfo: BoardInfo = {
   id: "board-1",
   shortName: "B",
   title: "テストボード",
+  role: "owner",
   positions: [{ id: "p1", name: "Todo" }],
+  categories,
   tasks,
 };
 
@@ -43,12 +49,14 @@ const renderBoard = () =>
   render(
     <BoardPage
       boardInfo={boardInfo}
-      categories={categories}
       onSaveTask={vi.fn()}
       onCreateCategory={vi.fn()}
+      onSetCategory={vi.fn()}
+      onDeleteCategories={vi.fn()}
       onReorderTasks={vi.fn()}
       onCommitTaskMove={vi.fn()}
       onDeleteTasks={vi.fn()}
+      onGetShareLink={vi.fn()}
     />,
   );
 
@@ -159,10 +167,12 @@ const twoColBoard: BoardInfo = {
   id: "board-2",
   shortName: "B",
   title: "2列ボード",
+  role: "owner",
   positions: [
     { id: "p1", name: "Todo" },
     { id: "p2", name: "Done" },
   ],
+  categories,
   tasks: [
     makeTask({ id: "a", name: "A", positionId: "p1" }),
     makeTask({ id: "b", name: "B", positionId: "p2" }),
@@ -176,12 +186,14 @@ const renderTwoCol = () => {
   render(
     <BoardPage
       boardInfo={twoColBoard}
-      categories={categories}
       onSaveTask={vi.fn()}
       onCreateCategory={vi.fn()}
+      onSetCategory={vi.fn()}
+      onDeleteCategories={vi.fn()}
       onReorderTasks={onReorderTasks}
       onCommitTaskMove={onCommitTaskMove}
       onDeleteTasks={onDeleteTasks}
+      onGetShareLink={vi.fn()}
     />,
   );
   return { onReorderTasks, onCommitTaskMove, onDeleteTasks };

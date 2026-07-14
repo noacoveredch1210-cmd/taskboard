@@ -13,6 +13,11 @@ const mocks = vi.hoisted(() => ({
   createPosition: vi.fn(),
   updatePosition: vi.fn(),
   removePosition: vi.fn(),
+  createCategory: vi.fn(),
+  updateCategory: vi.fn(),
+  removeCategory: vi.fn(),
+  joinBoard: vi.fn(),
+  getShareToken: vi.fn(),
   reportError: vi.fn(),
   showToast: vi.fn(),
 }));
@@ -35,6 +40,15 @@ vi.mock("../api/boards", () => ({
     create: mocks.createBoard,
     update: mocks.updateBoard,
     remove: mocks.removeBoard,
+    join: mocks.joinBoard,
+    getShareToken: mocks.getShareToken,
+  },
+}));
+vi.mock("../api/categories", () => ({
+  categoriesApi: {
+    create: mocks.createCategory,
+    update: mocks.updateCategory,
+    remove: mocks.removeCategory,
   },
 }));
 vi.mock("../api/positions", () => ({
@@ -70,10 +84,12 @@ const board = (overrides: Partial<BoardInfo> = {}): BoardInfo => ({
   id: "board-1",
   shortName: "B1",
   title: "ボード1",
+  role: "owner",
   positions: [
     { id: "pos-1", name: "未着手" },
     { id: "pos-2", name: "完了" },
   ],
+  categories: [],
   tasks: [],
   ...overrides,
 });
@@ -98,6 +114,9 @@ beforeEach(() => {
   mocks.createPosition.mockResolvedValue(undefined);
   mocks.updatePosition.mockResolvedValue(undefined);
   mocks.removePosition.mockResolvedValue(undefined);
+  mocks.createCategory.mockResolvedValue(undefined);
+  mocks.updateCategory.mockResolvedValue(undefined);
+  mocks.removeCategory.mockResolvedValue(undefined);
 });
 
 describe("初回ロード", () => {
@@ -375,6 +394,144 @@ describe("commitTaskMove（中間値が枯渇したときのリバランス）",
     const updated = result.current.boards[0].tasks ?? [];
     expect(updated.find((t) => t.id === "moved")?.orderIndex).toBe(1);
     expect(updated.find((t) => t.id === "other")?.orderIndex).toBe(42);
+  });
+});
+
+describe("カテゴリー（ボード単位）", () => {
+  it("createCategory は該当ボードに追加し、boardId 付きで API を呼ぶ", async () => {
+    const { result } = await renderLoaded([board({ categories: [] })]);
+
+    act(() => {
+      result.current.createCategory("board-1", "仕事", "#ff0000");
+    });
+
+    const created = result.current.boards[0].categories;
+    expect(created).toHaveLength(1);
+    expect(created[0]).toMatchObject({ name: "仕事", color: "#ff0000" });
+    expect(mocks.createCategory).toHaveBeenCalledWith({
+      id: created[0].id,
+      boardId: "board-1",
+      name: "仕事",
+      color: "#ff0000",
+    });
+  });
+
+  it("setCategory は既存値へマージして更新する", async () => {
+    const { result } = await renderLoaded([
+      board({ categories: [{ id: "c1", name: "仕事", color: "#ff0000" }] }),
+    ]);
+
+    act(() => {
+      result.current.setCategory("board-1", "c1", { name: "私用" });
+    });
+
+    expect(result.current.boards[0].categories[0]).toEqual({
+      id: "c1",
+      name: "私用",
+      color: "#ff0000", // 未指定は保たれる
+    });
+    expect(mocks.updateCategory).toHaveBeenCalledWith("c1", {
+      name: "私用",
+      color: "#ff0000",
+    });
+  });
+
+  it("deleteCategories は指定した id だけ消す", async () => {
+    const { result } = await renderLoaded([
+      board({
+        categories: [
+          { id: "c1", name: "A", color: "#111111" },
+          { id: "c2", name: "B", color: "#222222" },
+        ],
+      }),
+    ]);
+
+    act(() => {
+      result.current.deleteCategories("board-1", ["c1"]);
+    });
+
+    expect(result.current.boards[0].categories.map((c) => c.id)).toEqual(["c2"]);
+    expect(mocks.removeCategory).toHaveBeenCalledWith("c1");
+  });
+
+  it("カテゴリー作成が失敗したら通知し、サーバーの状態へ巻き戻す", async () => {
+    mocks.createCategory.mockRejectedValue(new Error("boom"));
+    const { result } = await renderLoaded([board({ categories: [] })]);
+
+    await act(async () => {
+      result.current.createCategory("board-1", "仕事", "#ff0000");
+    });
+
+    // 再取得（サーバーは空）で楽観的追加が消える。
+    expect(result.current.boards[0].categories).toEqual([]);
+    expect(mocks.showToast).toHaveBeenCalledWith("カテゴリーの作成に失敗しました");
+  });
+});
+
+describe("共有", () => {
+  it("参加リクエストが受理されたら requested を返し、承認待ちを通知する", async () => {
+    const { result } = await renderLoaded([]);
+    mocks.joinBoard.mockResolvedValue({ status: "requested" });
+
+    let outcome: string | null = null;
+    await act(async () => {
+      outcome = await result.current.joinBoard("token-123");
+    });
+
+    expect(outcome).toBe("requested");
+    expect(mocks.joinBoard).toHaveBeenCalledWith("token-123");
+    expect(mocks.showToast).toHaveBeenCalledWith(
+      "参加リクエストを送信しました。オーナーの承認をお待ちください。",
+    );
+    // まだメンバーではないので一覧は変わらない。
+    expect(result.current.boards).toEqual([]);
+  });
+
+  it("既にメンバーなら member を返し、一覧を取り直す", async () => {
+    const { result } = await renderLoaded([]);
+    mocks.joinBoard.mockResolvedValue({
+      status: "member",
+      board: { id: "shared-1" },
+    });
+    mocks.loadBoards.mockResolvedValue([
+      board({ id: "shared-1", role: "member" }),
+    ]);
+
+    let outcome: string | null = null;
+    await act(async () => {
+      outcome = await result.current.joinBoard("token-123");
+    });
+
+    expect(outcome).toBe("member");
+    expect(result.current.boards.map((b) => b.id)).toEqual(["shared-1"]);
+  });
+
+  it("joinBoard は失敗したら通知して null を返す", async () => {
+    const { result } = await renderLoaded([]);
+    mocks.joinBoard.mockRejectedValue(new Error("invalid"));
+
+    let joinedId: string | null = "x";
+    await act(async () => {
+      joinedId = await result.current.joinBoard("bad");
+    });
+
+    expect(joinedId).toBeNull();
+    expect(mocks.showToast).toHaveBeenCalledWith(
+      "ボードに参加できませんでした。リンクを確認してください。",
+    );
+  });
+
+  it("getShareLink は join クエリ付きの URL を組み立てる", async () => {
+    const { result } = await renderLoaded();
+    mocks.getShareToken.mockResolvedValue("tok-abc");
+
+    let link = "";
+    await act(async () => {
+      link = await result.current.getShareLink("board-1");
+    });
+
+    expect(mocks.getShareToken).toHaveBeenCalledWith("board-1");
+    expect(link).toBe(`${window.location.origin}/?join=tok-abc`);
   });
 });
 

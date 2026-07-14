@@ -9,7 +9,7 @@ const LogoutButton = () => {
       <button
         type="button"
         onClick={() => setOpenModal(true)}
-        className="bg-gray-200 rounded px-5 border hover:bg-gray-300 min-w-0 truncate"
+        className="bg-gray-200 btn-base px-5 border hover:bg-gray-300 min-w-0 truncate"
       >
         ログアウト
       </button>

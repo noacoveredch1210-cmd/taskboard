@@ -17,6 +17,7 @@ import Sort, { type SortKey } from "./Sort";
 import Filter, { type FilterType } from "./Filter";
 import Container from "./Container";
 import TaskCardContent from "./TaskCardContent";
+import BoardToolbar from "./BoardToolbar";
 import {
   COLUMN_PREFIX,
   resolveDrop,
@@ -44,9 +45,14 @@ const collisionDetection: CollisionDetection = (args) => {
 
 type Props = {
   boardInfo: BoardInfo;
-  categories: Category[];
   onSaveTask: (boardId: string, task: TaskInfo) => void;
-  onCreateCategory: (name: string, color: string) => void;
+  onCreateCategory: (boardId: string, name: string, color: string) => void;
+  onSetCategory: (
+    boardId: string,
+    categoryId: string,
+    updates: Partial<Category>,
+  ) => void;
+  onDeleteCategories: (boardId: string, ids: string[]) => void;
   onReorderTasks: (boardId: string, tasks: TaskInfo[]) => void;
   onCommitTaskMove: (
     boardId: string,
@@ -55,17 +61,25 @@ type Props = {
     tasksBeforeMove: TaskInfo[],
   ) => void;
   onDeleteTasks: (boardId: string, taskIds: string[]) => void;
+  onGetShareLink: (boardId: string) => Promise<string>;
 };
 
 const BoardPage = ({
   boardInfo,
-  categories,
   onSaveTask,
   onCreateCategory,
+  onSetCategory,
+  onDeleteCategories,
   onReorderTasks,
   onCommitTaskMove,
   onDeleteTasks,
+  onGetShareLink,
 }: Props) => {
+  // カテゴリーはボードに属する。
+  const categories = boardInfo.categories;
+  // 子コンポーネントは board を意識しない旧シグネチャを期待するので、ここで board を束ねる。
+  const createCategory = (name: string, color: string) =>
+    onCreateCategory(boardInfo.id, name, color);
   // ドラッグ中のタスク(DragOverlay表示用)
   const [activeTask, setActiveTask] = useState<TaskInfo | null>(null);
   // ドラッグ開始時点のタスクの並び(保存に失敗したときの巻き戻し先)
@@ -290,7 +304,16 @@ const BoardPage = ({
 
   return (
     <div className="p-5 flex-col flex gap-5 h-full">
-      <Search value={searchQuery} onChange={setSearchQuery} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Search value={searchQuery} onChange={setSearchQuery} />
+        <BoardToolbar
+          boardInfo={boardInfo}
+          onCreateCategory={onCreateCategory}
+          onSetCategory={onSetCategory}
+          onDeleteCategories={onDeleteCategories}
+          onGetShareLink={onGetShareLink}
+        />
+      </div>
       <div className="flex gap-5">
         <Sort value={sortKey} onChange={setSortKey} />
         <Filter
@@ -330,7 +353,7 @@ const BoardPage = ({
               onDeleteSelected={handleDeleteSelected}
               onDeleteTask={(taskId) => onDeleteTasks(boardInfo.id, [taskId])}
               onSaveTask={onSaveTask}
-              onCreateCategory={onCreateCategory}
+              onCreateCategory={createCategory}
               onAdvancePosition={handleAdvancePosition}
             />
           ))}

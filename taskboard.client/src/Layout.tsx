@@ -3,10 +3,8 @@ import Header from "./features/header/index.tsx";
 import Sidebar from "./features/sidebar/index.tsx";
 import Pages from "./features/pages/index.tsx";
 import AI from "./features/AI/index.tsx";
-import BoardModal from "./features/pages/components/home/board/BoardModal.tsx";
 import ErrorScreen from "./components/ErrorScreen.tsx";
 import { useBoards } from "./hooks/useBoards.ts";
-import { useCategories } from "./hooks/useCategories.ts";
 import { useUser } from "./hooks/useUser.ts";
 import Loading from "./components/Loading.tsx";
 
@@ -24,25 +22,32 @@ const Layout = () => {
     reorderTasks,
     commitTaskMove,
     deleteTasks,
+    createCategory,
+    setCategory,
+    deleteCategories,
+    getShareLink,
+    joinBoard,
   } = useBoards();
-  const { categories, setCategory, createCategory, deleteCategories } =
-    useCategories();
   const userInfo = useUser();
 
   // 初期表示はホーム画面（データ取得完了前に board を参照して落ちるのを防ぐ）
   const [openingPageIndex, setOpeningPageIndex] = useState<number | null>(null);
   const [openSidebar, setOpenSidebar] = useState(true);
   const [openAIWindow, setOpenAIWindow] = useState(false);
+  // 以前は board 0 件で作成モーダルを自動表示していたが、共有ボードに「参加する」
+  // ユーザー（作成しない）には邪魔なので廃止した。作成はホームの + から行う。
 
-  // board が1件も無いユーザー向けに、初回ロード完了時だけ board 追加モーダルを自動表示する。
-  const [showFirstBoardModal, setShowFirstBoardModal] = useState(false);
-  const promptedFirstBoard = useRef(false);
+  // 共有リンク（?join=<token>）で開かれたら、そのボードに参加する。
+  const handledJoin = useRef(false);
   useEffect(() => {
-    if (!promptedFirstBoard.current && loaded && boards.length === 0) {
-      promptedFirstBoard.current = true;
-      setShowFirstBoardModal(true);
-    }
-  }, [loaded, boards.length]);
+    if (handledJoin.current || !loaded) return;
+    const token = new URLSearchParams(window.location.search).get("join");
+    if (!token) return;
+    handledJoin.current = true;
+    // URL からトークンを消す（再読み込みで二重参加しないため）。
+    window.history.replaceState(null, "", window.location.pathname);
+    joinBoard(token);
+  }, [loaded, joinBoard]);
 
   // AIウィンドウを開くときはサイドバーを閉じる
   const toggleAIWindow = () => {
@@ -76,13 +81,17 @@ const Layout = () => {
                 ? "ホーム画面"
                 : (boards[openingPageIndex]?.title ?? "")
             }
+            boardId={
+              openingPageIndex === null
+                ? undefined
+                : boards[openingPageIndex]?.id
+            }
           />
         </div>
         <div className="flex-1 min-h-0 overflow-x-auto">
           <Pages
             userInfo={userInfo}
             boards={boards}
-            categories={categories}
             openingPageIndex={openingPageIndex}
             onSaveTask={saveTask}
             onSetCategory={setCategory}
@@ -94,18 +103,14 @@ const Layout = () => {
             onReorderTasks={reorderTasks}
             onCommitTaskMove={commitTaskMove}
             onDeleteTasks={deleteTasks}
+            onGetShareLink={getShareLink}
+            onJoinBoard={joinBoard}
           />
         </div>
       </div>
       <div className={openAIWindow ? "w-90" : "w-10"}>
         <AI isOpen={openAIWindow} toggleAIWindow={toggleAIWindow} />
       </div>
-      {showFirstBoardModal && (
-        <BoardModal
-          onClose={() => setShowFirstBoardModal(false)}
-          onCreateBoard={createBoard}
-        />
-      )}
     </div>
   );
 };

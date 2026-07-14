@@ -21,13 +21,13 @@
 }
 
 @utility btn-base {
-  @apply flex cursor-pointer items-center justify-center rounded py-1 font-medium;
+  @apply flex cursor-pointer items-center justify-center rounded py-1;
 }
 
 @utility btn-yes {
-  @apply btn-base bg-primary-button px-5 hover:bg-primary-button-hover;
+  @apply btn-base bg-primary-button px-5 font-medium hover:bg-primary-button-hover;
 }
 
 @utility btn-no {
-  @apply btn-base bg-gray-200 px-5 hover:bg-gray-300;
+  @apply btn-base bg-gray-200 px-5 font-medium hover:bg-gray-300;
 }

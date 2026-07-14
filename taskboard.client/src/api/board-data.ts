@@ -31,19 +31,14 @@ export const loadBoards = async (): Promise<BoardInfo[]> => {
 
   return Promise.all(
     boardDtos.map(async (board) => {
-      const [positions, tasks] = await Promise.all([
+      const [positions, tasks, categories] = await Promise.all([
         positionsApi.getByBoard(board.id),
         tasksApi.getByBoard(board.id),
+        categoriesApi.getByBoard(board.id),
       ]);
-      return toBoardInfo(board, positions, tasks);
+      return toBoardInfo(board, positions, tasks, categories);
     }),
   );
-};
-
-/** 認証ユーザー自身のカテゴリー一覧を取得する。 */
-export const loadCategories = async (): Promise<Category[]> => {
-  const dtos = await categoriesApi.getMine();
-  return dtos.map(toCategory);
 };
 
 /** 認証ユーザー自身の情報を取得する（初回は DB へ登録される）。 */
@@ -70,12 +65,15 @@ const toBoardInfo = (
   board: BoardDto,
   positions: PositionDto[],
   tasks: TaskDto[],
+  categories: CategoryDto[],
 ): BoardInfo => {
   return {
     id: board.id,
     shortName: board.shortName,
     title: board.title,
+    role: board.role,
     positions: positions.map(toPosition),
+    categories: categories.map(toCategory),
     tasks: tasks.map(toTaskInfo),
   };
 };

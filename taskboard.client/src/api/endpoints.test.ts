@@ -71,9 +71,9 @@ describe("リソース固有の取得", () => {
     expect(apiMock.get).toHaveBeenCalledWith("/boards");
   });
 
-  it("categoriesApi.getMine はクエリ無しで /categories を叩く", () => {
-    categoriesApi.getMine();
-    expect(apiMock.get).toHaveBeenCalledWith("/categories");
+  it("categoriesApi.getByBoard は boardId 付きで /categories を叩く", () => {
+    categoriesApi.getByBoard("board-1");
+    expect(apiMock.get).toHaveBeenCalledWith("/categories?boardId=board-1");
   });
 });
 
