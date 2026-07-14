@@ -47,7 +47,7 @@ namespace TaskBoard.Server.IntegrationTests.Repositories
         }
 
         [SkippableFact]
-        public async Task Create_は他人のcategoryを紐付けさせない()
+        public async Task Create_は他boardのcategoryを紐付けさせない()
         {
             RequireDocker();
             using var connection = await Fixture.OpenConnectionAsync();
@@ -55,7 +55,7 @@ namespace TaskBoard.Server.IntegrationTests.Repositories
             var repository = new TaskRepository(connection);
 
             var request = NewTask(Guid.NewGuid(), world.OwnerBoard, world.OwnerPosition);
-            request.CategoryId = world.StrangerCategory; // 他人のカテゴリー
+            request.CategoryId = world.StrangerCategory; // 別 board のカテゴリー
 
             Assert.False(await repository.CreateAsync(request, Owner));
         }
@@ -159,9 +159,9 @@ namespace TaskBoard.Server.IntegrationTests.Repositories
             { Id = world.StrangerPosition, BoardId = world.StrangerBoard, Name = "Todo", OrderIndex = 0 }, Stranger);
 
             await categories.CreateAsync(new CreateCategoryRequest
-            { Id = world.OwnerCategory, UserId = Owner, Name = "仕事", Color = "#ff0000" });
+            { Id = world.OwnerCategory, BoardId = world.OwnerBoard, Name = "仕事", Color = "#ff0000" }, Owner);
             await categories.CreateAsync(new CreateCategoryRequest
-            { Id = world.StrangerCategory, UserId = Stranger, Name = "私用", Color = "#00ff00" });
+            { Id = world.StrangerCategory, BoardId = world.StrangerBoard, Name = "私用", Color = "#00ff00" }, Stranger);
 
             return world;
         }

@@ -11,9 +11,9 @@ namespace TaskBoard.Server.Data
             "category_id AS CategoryId, name, comment, importance, " +
             "deadline, order_index AS OrderIndex, created_at AS CreatedAt";
 
-        /// <summary>tasks の行が、認証ユーザーの所有する board に属することを要求する条件。</summary>
+        /// <summary>tasks の行が、認証ユーザーの参加する board に属することを要求する条件。</summary>
         private const string OwnedByUser =
-            "EXISTS (SELECT 1 FROM boards b WHERE b.id = tasks.board_id AND b.user_id = @UserId)";
+            "EXISTS (SELECT 1 FROM board_members m WHERE m.board_id = tasks.board_id AND m.user_id = @UserId)";
 
         public TaskRepository(IDbConnection connection) : base(connection) { }
 
@@ -40,8 +40,8 @@ namespace TaskBoard.Server.Data
 
         public async Task<bool> CreateAsync(CreateTaskRequest request, Guid userId)
         {
-            if (!await OwnsBoardAsync(request.BoardId, userId)) return false;
-            if (!await CanAssignAsync(request.BoardId, userId, request.PositionId, request.CategoryId)) return false;
+            if (!await IsBoardMemberAsync(request.BoardId, userId)) return false;
+            if (!await CanAssignAsync(request.BoardId, request.PositionId, request.CategoryId)) return false;
 
             const string sql = """
             INSERT INTO tasks (id, board_id, position_id, category_id, name, comment, importance, deadline, order_index)
@@ -56,7 +56,7 @@ namespace TaskBoard.Server.Data
             // 所有権の確認と、移動先 board の特定を兼ねる。
             var boardId = await FindOwnedBoardIdAsync(id, userId);
             if (boardId is null) return false;
-            if (!await CanAssignAsync(boardId.Value, userId, request.PositionId, request.CategoryId)) return false;
+            if (!await CanAssignAsync(boardId.Value, request.PositionId, request.CategoryId)) return false;
 
             const string sql = """
             UPDATE tasks
@@ -93,23 +93,24 @@ namespace TaskBoard.Server.Data
             return affectedRows > 0;
         }
 
-        /// <summary>task が認証ユーザーの board に属していれば、その board_id を返す。</summary>
+        /// <summary>task が認証ユーザーの参加する board に属していれば、その board_id を返す。</summary>
         private Task<Guid?> FindOwnedBoardIdAsync(Guid id, Guid userId)
         {
             const string sql = """
             SELECT t.board_id
             FROM tasks t
-            JOIN boards b ON b.id = t.board_id
-            WHERE t.id = @Id AND b.user_id = @UserId
+            JOIN board_members m ON m.board_id = t.board_id AND m.user_id = @UserId
+            WHERE t.id = @Id
             """;
             return Connection.ExecuteScalarAsync<Guid?>(sql, new { Id = id, UserId = userId });
         }
 
         /// <summary>
-        /// 割り当て先の妥当性を確認する。position は同一 board 内、category は同一ユーザーのものに限る
-        /// （他人のカテゴリーや別 board のポジションを task に紐付けさせない）。
+        /// 割り当て先の妥当性を確認する。position も category も同一 board のものに限る
+        /// （別 board のポジションやカテゴリーを task に紐付けさせない）。
+        /// board のメンバーであることは呼び出し前に確認済みなので、ここでは board 一致だけ見る。
         /// </summary>
-        private async Task<bool> CanAssignAsync(Guid boardId, Guid userId, Guid? positionId, Guid? categoryId)
+        private async Task<bool> CanAssignAsync(Guid boardId, Guid? positionId, Guid? categoryId)
         {
             if (positionId is Guid position)
             {
@@ -120,8 +121,8 @@ namespace TaskBoard.Server.Data
 
             if (categoryId is Guid category)
             {
-                const string sql = "SELECT EXISTS (SELECT 1 FROM categories WHERE id = @Id AND user_id = @UserId)";
-                if (!await Connection.ExecuteScalarAsync<bool>(sql, new { Id = category, UserId = userId }))
+                const string sql = "SELECT EXISTS (SELECT 1 FROM categories WHERE id = @Id AND board_id = @BoardId)";
+                if (!await Connection.ExecuteScalarAsync<bool>(sql, new { Id = category, BoardId = boardId }))
                     return false;
             }
 

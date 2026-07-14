@@ -19,7 +19,7 @@ namespace TaskBoard.Server.Tests.Controllers
         public async Task GetMine_ReturnsBoardsOfAuthenticatedUser()
         {
             var boards = new[] { new Board { Id = Guid.NewGuid(), UserId = _userId } };
-            _repository.GetByUserIdAsync(_userId).Returns(boards);
+            _repository.GetForUserAsync(_userId).Returns(boards);
 
             var result = await CreateController().GetMine();
 
@@ -30,12 +30,12 @@ namespace TaskBoard.Server.Tests.Controllers
         [Fact]
         public async Task GetMine_DoesNotLeakOtherUsersBoards()
         {
-            _repository.GetByUserIdAsync(Arg.Any<Guid>()).Returns([]);
+            _repository.GetForUserAsync(Arg.Any<Guid>()).Returns([]);
 
             await CreateController().GetMine();
 
             // 一覧取得は必ずトークンのユーザー ID で問い合わせる。
-            await _repository.Received(1).GetByUserIdAsync(_userId);
+            await _repository.Received(1).GetForUserAsync(_userId);
         }
 
         [Fact]
@@ -145,6 +145,145 @@ namespace TaskBoard.Server.Tests.Controllers
             _repository.DeleteAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(false);
 
             var result = await CreateController().Delete(Guid.NewGuid());
+
+            Assert.IsType<NotFoundResult>(result);
+        }
+
+        [Fact]
+        public async Task GetShareToken_ReturnsToken_ForOwner()
+        {
+            var id = Guid.NewGuid();
+            var token = Guid.NewGuid();
+            _repository.GetShareTokenAsync(id, _userId).Returns(token);
+
+            var result = await CreateController().GetShareToken(id);
+
+            var ok = Assert.IsType<OkObjectResult>(result);
+            Assert.Equal(token, ok.Value!.GetType().GetProperty("shareToken")!.GetValue(ok.Value));
+        }
+
+        [Fact]
+        public async Task GetShareToken_ReturnsNotFound_WhenNotOwner()
+        {
+            _repository.GetShareTokenAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns((Guid?)null);
+
+            var result = await CreateController().GetShareToken(Guid.NewGuid());
+
+            Assert.IsType<NotFoundResult>(result);
+        }
+
+        [Fact]
+        public async Task Join_ReturnsRequestedStatus_WhenNewRequester()
+        {
+            var token = Guid.NewGuid();
+            var boardId = Guid.NewGuid();
+            _repository.RequestJoinByTokenAsync(token, _userId)
+                .Returns(new JoinOutcome(JoinResult.Requested, boardId));
+
+            var result = await CreateController().Join(new JoinBoardRequest { Token = token });
+
+            var ok = Assert.IsType<OkObjectResult>(result);
+            Assert.Equal("requested", ok.Value!.GetType().GetProperty("status")!.GetValue(ok.Value));
+            await _repository.Received(1).RequestJoinByTokenAsync(token, _userId);
+        }
+
+        [Fact]
+        public async Task Join_ReturnsMemberStatusWithBoard_WhenAlreadyMember()
+        {
+            var token = Guid.NewGuid();
+            var boardId = Guid.NewGuid();
+            var board = new Board { Id = boardId, Role = "member" };
+            _repository.RequestJoinByTokenAsync(token, _userId)
+                .Returns(new JoinOutcome(JoinResult.AlreadyMember, boardId));
+            _repository.GetByIdAsync(boardId, _userId).Returns(board);
+
+            var result = await CreateController().Join(new JoinBoardRequest { Token = token });
+
+            var ok = Assert.IsType<OkObjectResult>(result);
+            Assert.Equal("member", ok.Value!.GetType().GetProperty("status")!.GetValue(ok.Value));
+        }
+
+        [Fact]
+        public async Task Join_ReturnsNotFound_WhenTokenInvalid()
+        {
+            _repository.RequestJoinByTokenAsync(Arg.Any<Guid>(), Arg.Any<Guid>())
+                .Returns(new JoinOutcome(JoinResult.NotFound, null));
+
+            var result = await CreateController().Join(new JoinBoardRequest { Token = Guid.NewGuid() });
+
+            Assert.IsType<NotFoundResult>(result);
+        }
+
+        [Fact]
+        public async Task ApproveJoinRequest_ScopesToActingUser()
+        {
+            var boardId = Guid.NewGuid();
+            var target = Guid.NewGuid();
+            _repository.ApproveJoinRequestAsync(boardId, _userId, target).Returns(true);
+
+            var result = await CreateController().ApproveJoinRequest(boardId, target);
+
+            Assert.IsType<NoContentResult>(result);
+            await _repository.Received(1).ApproveJoinRequestAsync(boardId, _userId, target);
+        }
+
+        [Fact]
+        public async Task RejectJoinRequest_ReturnsNotFound_WhenNotPermitted()
+        {
+            _repository.RejectJoinRequestAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<Guid>())
+                .Returns(false);
+
+            var result = await CreateController().RejectJoinRequest(Guid.NewGuid(), Guid.NewGuid());
+
+            Assert.IsType<NotFoundResult>(result);
+        }
+
+        [Fact]
+        public async Task RemoveMember_ScopesToActingUser()
+        {
+            var boardId = Guid.NewGuid();
+            var target = Guid.NewGuid();
+            _repository.RemoveMemberAsync(boardId, _userId, target).Returns(true);
+
+            var result = await CreateController().RemoveMember(boardId, target);
+
+            Assert.IsType<NoContentResult>(result);
+            await _repository.Received(1).RemoveMemberAsync(boardId, _userId, target);
+        }
+
+        [Fact]
+        public async Task RemoveMember_ReturnsNotFound_WhenNotPermitted()
+        {
+            _repository.RemoveMemberAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(false);
+
+            var result = await CreateController().RemoveMember(Guid.NewGuid(), Guid.NewGuid());
+
+            Assert.IsType<NotFoundResult>(result);
+        }
+
+        [Fact]
+        public async Task SetMemberRole_ScopesToActingUserAndPassesRole()
+        {
+            var boardId = Guid.NewGuid();
+            var target = Guid.NewGuid();
+            _repository.SetMemberRoleAsync(boardId, _userId, target, "owner").Returns(true);
+
+            var result = await CreateController()
+                .SetMemberRole(boardId, target, new UpdateMemberRoleRequest { Role = "owner" });
+
+            Assert.IsType<NoContentResult>(result);
+            await _repository.Received(1).SetMemberRoleAsync(boardId, _userId, target, "owner");
+        }
+
+        [Fact]
+        public async Task SetMemberRole_ReturnsNotFound_WhenNotPermitted()
+        {
+            _repository
+                .SetMemberRoleAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<string>())
+                .Returns(false);
+
+            var result = await CreateController()
+                .SetMemberRole(Guid.NewGuid(), Guid.NewGuid(), new UpdateMemberRoleRequest { Role = "member" });
 
             Assert.IsType<NotFoundResult>(result);
         }

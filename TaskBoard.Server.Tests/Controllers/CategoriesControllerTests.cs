@@ -11,37 +11,39 @@ namespace TaskBoard.Server.Tests.Controllers
     {
         private readonly ICategoryRepository _repository = Substitute.For<ICategoryRepository>();
         private readonly Guid _userId = Guid.NewGuid();
+        private readonly Guid _boardId = Guid.NewGuid();
 
         private CategoriesController CreateController() =>
             new CategoriesController(_repository).WithUser(_userId);
 
         [Fact]
-        public async Task GetMine_ReturnsCategoriesOfAuthenticatedUser()
+        public async Task GetByBoard_ReturnsCategoriesForMember()
         {
-            var categories = new[] { new Category { Id = Guid.NewGuid(), UserId = _userId } };
-            _repository.GetByUserIdAsync(_userId).Returns(categories);
+            var categories = new[] { new Category { Id = Guid.NewGuid(), BoardId = _boardId } };
+            _repository.GetByBoardIdAsync(_boardId, _userId).Returns(categories);
 
-            var result = await CreateController().GetMine();
+            var result = await CreateController().GetByBoard(_boardId);
 
             var ok = Assert.IsType<OkObjectResult>(result);
             Assert.Same(categories, ok.Value);
         }
 
         [Fact]
-        public async Task GetMine_DoesNotLeakOtherUsersCategories()
+        public async Task GetByBoard_ScopesLookupToAuthenticatedUser()
         {
-            _repository.GetByUserIdAsync(Arg.Any<Guid>()).Returns([]);
+            _repository.GetByBoardIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns([]);
 
-            await CreateController().GetMine();
+            await CreateController().GetByBoard(_boardId);
 
-            await _repository.Received(1).GetByUserIdAsync(_userId);
+            // 参加していない board のカテゴリーを引けないよう、ユーザー ID 付きで問い合わせる。
+            await _repository.Received(1).GetByBoardIdAsync(_boardId, _userId);
         }
 
         [Fact]
-        public async Task GetById_ReturnsCategory_WhenOwnedByAuthenticatedUser()
+        public async Task GetById_ReturnsCategory_WhenMember()
         {
             var id = Guid.NewGuid();
-            var category = new Category { Id = id, UserId = _userId };
+            var category = new Category { Id = id, BoardId = _boardId };
             _repository.GetByIdAsync(id, _userId).Returns(category);
 
             var result = await CreateController().GetById(id);
@@ -51,17 +53,7 @@ namespace TaskBoard.Server.Tests.Controllers
         }
 
         [Fact]
-        public async Task GetById_ScopesLookupToAuthenticatedUser()
-        {
-            var id = Guid.NewGuid();
-
-            await CreateController().GetById(id);
-
-            await _repository.Received(1).GetByIdAsync(id, _userId);
-        }
-
-        [Fact]
-        public async Task GetById_ReturnsNotFound_WhenMissingOrNotOwned()
+        public async Task GetById_ReturnsNotFound_WhenMissingOrNotMember()
         {
             _repository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns((Category?)null);
 
@@ -71,26 +63,41 @@ namespace TaskBoard.Server.Tests.Controllers
         }
 
         [Fact]
-        public async Task Create_OverwritesUserIdWithTokenUser()
+        public async Task Create_PassesTokenUserToRepository()
         {
             var request = new CreateCategoryRequest
             {
                 Id = Guid.NewGuid(),
-                UserId = Guid.NewGuid(),
+                BoardId = _boardId,
                 Name = "Work",
                 Color = "#ff0000",
             };
+            _repository.CreateAsync(request, _userId).Returns(true);
 
             await CreateController().Create(request);
 
-            await _repository.Received(1).CreateAsync(Arg.Is<CreateCategoryRequest>(r => r.UserId == _userId));
+            // 作成はトークンのユーザーとして行う（board メンバー判定は認証ユーザーで）。
+            await _repository.Received(1).CreateAsync(request, _userId);
+        }
+
+        [Fact]
+        public async Task Create_ReturnsNotFound_WhenNotBoardMember()
+        {
+            _repository.CreateAsync(Arg.Any<CreateCategoryRequest>(), Arg.Any<Guid>()).Returns(false);
+
+            var result = await CreateController().Create(
+                new CreateCategoryRequest { Id = Guid.NewGuid(), BoardId = _boardId });
+
+            Assert.IsType<NotFoundResult>(result);
         }
 
         [Fact]
         public async Task Create_ReturnsCreatedAtActionWithPersistedCategory()
         {
-            var request = new CreateCategoryRequest { Id = Guid.NewGuid(), Name = "Work", Color = "#ff0000" };
-            var created = new Category { Id = request.Id, UserId = _userId };
+            var request = new CreateCategoryRequest
+            { Id = Guid.NewGuid(), BoardId = _boardId, Name = "Work", Color = "#ff0000" };
+            _repository.CreateAsync(request, _userId).Returns(true);
+            var created = new Category { Id = request.Id, BoardId = _boardId };
             _repository.GetByIdAsync(request.Id, _userId).Returns(created);
 
             var result = await CreateController().Create(request);
@@ -115,7 +122,7 @@ namespace TaskBoard.Server.Tests.Controllers
         }
 
         [Fact]
-        public async Task Update_ReturnsNotFound_WhenMissingOrNotOwned()
+        public async Task Update_ReturnsNotFound_WhenMissingOrNotMember()
         {
             _repository.UpdateAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<UpdateCategoryRequest>()).Returns(false);
 
@@ -137,7 +144,7 @@ namespace TaskBoard.Server.Tests.Controllers
         }
 
         [Fact]
-        public async Task Delete_ReturnsNotFound_WhenMissingOrNotOwned()
+        public async Task Delete_ReturnsNotFound_WhenMissingOrNotMember()
         {
             _repository.DeleteAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(false);
 

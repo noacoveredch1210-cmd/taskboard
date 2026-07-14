@@ -9,9 +9,13 @@ namespace TaskBoard.Server.Data
         private const string Columns =
             "id, board_id AS BoardId, name, order_index AS OrderIndex, created_at AS CreatedAt";
 
-        /// <summary>positions の行が、認証ユーザーの所有する board に属することを要求する条件。</summary>
+        /// <summary>positions の行が、認証ユーザーの参加する board に属すること（閲覧用）。</summary>
         private const string OwnedByUser =
-            "EXISTS (SELECT 1 FROM boards b WHERE b.id = positions.board_id AND b.user_id = @UserId)";
+            "EXISTS (SELECT 1 FROM board_members m WHERE m.board_id = positions.board_id AND m.user_id = @UserId)";
+
+        /// <summary>列の追加・改名・並べ替え・削除はボード構造の変更なのでオーナー限定。</summary>
+        private const string OwnedByOwner =
+            "EXISTS (SELECT 1 FROM board_members m WHERE m.board_id = positions.board_id AND m.user_id = @UserId AND m.role = 'owner')";
 
         public PositionRepository(IDbConnection connection) : base(connection) { }
 
@@ -38,7 +42,8 @@ namespace TaskBoard.Server.Data
 
         public async Task<bool> CreateAsync(CreatePositionRequest request, Guid userId)
         {
-            if (!await OwnsBoardAsync(request.BoardId, userId)) return false;
+            // 列の作成はオーナーのみ（ボード構造の変更）。
+            if (!await IsBoardOwnerAsync(request.BoardId, userId)) return false;
 
             const string sql = """
             INSERT INTO positions (id, board_id, name, order_index)
@@ -54,7 +59,7 @@ namespace TaskBoard.Server.Data
             UPDATE positions
             SET name = @Name,
                 order_index = @OrderIndex
-            WHERE id = @Id AND {OwnedByUser}
+            WHERE id = @Id AND {OwnedByOwner}
             """;
             var affectedRows = await Connection.ExecuteAsync(sql, new
             {
@@ -70,7 +75,7 @@ namespace TaskBoard.Server.Data
         {
             var sql = $"""
             DELETE FROM positions
-            WHERE id = @Id AND {OwnedByUser}
+            WHERE id = @Id AND {OwnedByOwner}
             """;
             var affectedRows = await Connection.ExecuteAsync(sql, new { Id = id, UserId = userId });
             return affectedRows > 0;

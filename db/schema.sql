@@ -26,16 +26,40 @@ ALTER TABLE users
     FOREIGN KEY (id) REFERENCES auth.users (id) ON DELETE CASCADE;
 
 CREATE TABLE boards (
-    id          uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id     uuid        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-    short_name  varchar     NOT NULL,
-    title       varchar     NOT NULL,
-    created_at  timestamptz NOT NULL DEFAULT now()
+    id           uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+    -- 作成者。アカウント削除時のカスケードの起点として残す（アクセス判定は board_members で行う）。
+    user_id      uuid        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    short_name   varchar     NOT NULL,
+    title        varchar     NOT NULL,
+    -- 共有リンク用のトークン。これを知っているログインユーザーはメンバーとして参加できる。
+    share_token  uuid        NOT NULL DEFAULT gen_random_uuid() UNIQUE,   -- boards_share_token_key
+    created_at   timestamptz NOT NULL DEFAULT now()
 );
 
+-- ボードのメンバーシップ。アクセス権はこの表で判定する（1 ボードを複数ユーザーで共有）。
+-- role='owner' はボード削除・メンバー管理ができる。作成者は作成時に owner として登録される。
+CREATE TABLE board_members (
+    board_id    uuid        NOT NULL REFERENCES boards (id) ON DELETE CASCADE,
+    user_id     uuid        NOT NULL REFERENCES users (id)  ON DELETE CASCADE,
+    role        varchar     NOT NULL DEFAULT 'member' CHECK (role IN ('owner', 'member')),
+    created_at  timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (board_id, user_id)
+);
+
+-- 共有リンクからの参加リクエスト（保留中）。オーナーが承認すると board_members へ移す。
+-- board_members とは分けることで、既存のアクセス判定（メンバー = board_members）に手を入れない。
+CREATE TABLE board_join_requests (
+    board_id    uuid        NOT NULL REFERENCES boards (id) ON DELETE CASCADE,
+    user_id     uuid        NOT NULL REFERENCES users (id)  ON DELETE CASCADE,
+    created_at  timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (board_id, user_id)
+);
+CREATE INDEX board_join_requests_board_id_idx ON board_join_requests (board_id);
+
+-- カテゴリーはボードに属する（共有ボードのメンバー全員が同じカテゴリーを使う）。
 CREATE TABLE categories (
     id          uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id     uuid        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    board_id    uuid        NOT NULL REFERENCES boards (id) ON DELETE CASCADE,
     name        varchar     NOT NULL,
     color       varchar     NOT NULL,
     created_at  timestamptz NOT NULL DEFAULT now()
@@ -65,14 +89,17 @@ CREATE TABLE tasks (
 );
 
 -- 外部キーの列には索引が自動生成されない（主キーと UNIQUE には作られる）。
--- 所有権チェック（Data/*Repository.cs）が boards.user_id と board_id を常に辿るため、
--- 一覧取得と EXISTS 判定の両方がこれらに乗る。migrations/0003 で追加。
-CREATE INDEX boards_user_id_idx      ON boards     (user_id);
-CREATE INDEX categories_user_id_idx  ON categories (user_id);
-CREATE INDEX positions_board_id_idx  ON positions  (board_id);
-CREATE INDEX tasks_board_id_idx      ON tasks      (board_id);
-CREATE INDEX tasks_position_id_idx   ON tasks      (position_id);
-CREATE INDEX tasks_category_id_idx   ON tasks      (category_id);
+-- アクセス判定（Data/*Repository.cs）が board_members と board_id を常に辿るため、
+-- 一覧取得と EXISTS 判定の両方がこれらに乗る。
+CREATE INDEX boards_user_id_idx           ON boards        (user_id);
+-- board_members(board_id, user_id) の複合 PK があるので board_id 先頭の検索は PK で足りる。
+-- 「自分が参加しているボード一覧」は user_id 単独で引くため、その索引を足す。
+CREATE INDEX board_members_user_id_idx    ON board_members (user_id);
+CREATE INDEX categories_board_id_idx      ON categories    (board_id);
+CREATE INDEX positions_board_id_idx       ON positions     (board_id);
+CREATE INDEX tasks_board_id_idx           ON tasks         (board_id);
+CREATE INDEX tasks_position_id_idx        ON tasks         (position_id);
+CREATE INDEX tasks_category_id_idx        ON tasks         (category_id);
 
 -- varchar の長さ上限は本番未確認のため、ここでは無制限として書いている。
 -- 入力長は Models/TextLimits.cs の [MaxLength] で 400 として弾くため、列側の制約には依存しない。

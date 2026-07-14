@@ -5,8 +5,8 @@ namespace TaskBoard.Server.Models
     public class CreateCategoryRequest
     {
         public Guid Id { get; set; }
-        /// <summary>コントローラーがトークンのユーザー ID で上書きするため、body の値は使われない。</summary>
-        public Guid UserId { get; set; }
+        /// <summary>作成先のボード。作成者がそのボードのメンバーであることをサーバーが確認する。</summary>
+        public Guid BoardId { get; set; }
         [MaxLength(TextLimits.CategoryName)]
         public string Name { get; set; } = string.Empty;
         [RegularExpression(TextLimits.HexColorPattern, ErrorMessage = "色は #rrggbb 形式で指定してください。")]

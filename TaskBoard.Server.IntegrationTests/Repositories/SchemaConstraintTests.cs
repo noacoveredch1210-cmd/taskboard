@@ -87,10 +87,11 @@ namespace TaskBoard.Server.IntegrationTests.Repositories
             RequireDocker();
             using var connection = await Fixture.OpenConnectionAsync();
             await SeedUserAsync(connection, User, "user@example.com");
+            var boardId = Guid.NewGuid();
             await new BoardRepository(connection).CreateAsync(new CreateBoardRequest
-            { Id = Guid.NewGuid(), UserId = User, ShortName = "B", Title = "T" });
+            { Id = boardId, UserId = User, ShortName = "B", Title = "T" });
             await new CategoryRepository(connection).CreateAsync(new CreateCategoryRequest
-            { Id = Guid.NewGuid(), UserId = User, Name = "仕事", Color = "#ff0000" });
+            { Id = Guid.NewGuid(), BoardId = boardId, Name = "仕事", Color = "#ff0000" }, User);
 
             // 退会：アプリ上の users 行を削除する（UserRepository.DeleteAsync と同じ経路）。
             var deleted = await new UserRepository(connection).DeleteAsync(User);

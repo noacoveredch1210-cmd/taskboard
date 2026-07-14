@@ -14,15 +14,15 @@ namespace TaskBoard.Server.Controllers
             _repository = repository;
         }
 
-        // GET /api/categories （認証ユーザー自身のカテゴリー一覧）
+        // GET /api/categories?boardId={id} （指定ボードのカテゴリー一覧。メンバーのみ）
         [HttpGet]
-        public async Task<IActionResult> GetMine()
+        public async Task<IActionResult> GetByBoard([FromQuery] Guid boardId)
         {
-            var categories = await _repository.GetByUserIdAsync(CurrentUserId);
+            var categories = await _repository.GetByBoardIdAsync(boardId, CurrentUserId);
             return Ok(categories);
         }
 
-        // 他人の category は存在を伏せるため 404 を返す（403 だと id の実在が漏れる）。
+        // 参加していない board の category は存在を伏せるため 404 を返す（403 だと id の実在が漏れる）。
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(Guid id)
         {
@@ -34,11 +34,11 @@ namespace TaskBoard.Server.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateCategoryRequest request)
         {
-            // 所有者は必ずトークンのユーザーに固定する（body の値は信用しない）。
-            request.UserId = CurrentUserId;
-            await _repository.CreateAsync(request);
-            var created = await _repository.GetByIdAsync(request.Id, CurrentUserId);
-            return CreatedAtAction(nameof(GetById), new { id = request.Id }, created);
+            // 作成先 board のメンバーでなければ作らせない。
+            var created = await _repository.CreateAsync(request, CurrentUserId);
+            if (!created) return NotFound();
+            var category = await _repository.GetByIdAsync(request.Id, CurrentUserId);
+            return CreatedAtAction(nameof(GetById), new { id = request.Id }, category);
         }
 
         [HttpPut("{id}")]

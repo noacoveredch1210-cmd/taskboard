@@ -4,7 +4,8 @@ using Dapper;
 namespace TaskBoard.Server.Data
 {
     /// <summary>
-    /// リポジトリ共通の接続保持と、id 指定の削除処理を提供する基底クラス。
+    /// リポジトリ共通の接続保持と、メンバーシップ判定を提供する基底クラス。
+    /// アクセス権は「その board のメンバーか」で判定する（board_members）。
     /// </summary>
     public abstract class RepositoryBase
     {
@@ -15,18 +16,19 @@ namespace TaskBoard.Server.Data
             Connection = connection;
         }
 
-        /// <summary>user_id 列を持つテーブルから、所有者本人の行だけを削除する。</summary>
-        protected async Task<bool> DeleteOwnedAsync(string table, Guid id, Guid userId)
+        /// <summary>ユーザーが board のメンバーか。positions / tasks / categories のアクセス判定の起点。</summary>
+        protected Task<bool> IsBoardMemberAsync(Guid boardId, Guid userId)
         {
-            var sql = $"DELETE FROM {table} WHERE id = @Id AND user_id = @UserId";
-            var affectedRows = await Connection.ExecuteAsync(sql, new { Id = id, UserId = userId });
-            return affectedRows > 0;
+            const string sql =
+                "SELECT EXISTS (SELECT 1 FROM board_members WHERE board_id = @BoardId AND user_id = @UserId)";
+            return Connection.ExecuteScalarAsync<bool>(sql, new { BoardId = boardId, UserId = userId });
         }
 
-        /// <summary>board を当該ユーザーが所有しているか。positions / tasks の所有権判定の起点。</summary>
-        protected Task<bool> OwnsBoardAsync(Guid boardId, Guid userId)
+        /// <summary>ユーザーが board のオーナーか。ボード削除・メンバー管理の判定に使う。</summary>
+        protected Task<bool> IsBoardOwnerAsync(Guid boardId, Guid userId)
         {
-            const string sql = "SELECT EXISTS (SELECT 1 FROM boards WHERE id = @BoardId AND user_id = @UserId)";
+            const string sql =
+                "SELECT EXISTS (SELECT 1 FROM board_members WHERE board_id = @BoardId AND user_id = @UserId AND role = 'owner')";
             return Connection.ExecuteScalarAsync<bool>(sql, new { BoardId = boardId, UserId = userId });
         }
     }
