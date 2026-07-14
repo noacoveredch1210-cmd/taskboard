@@ -15,6 +15,7 @@ const t = (id: string, positionId: string): TaskInfo => ({
   importance: 0,
   categoryId: "",
   positionId,
+  assigneeId: "",
   orderIndex: 0,
 });
 

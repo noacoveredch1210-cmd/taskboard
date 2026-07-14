@@ -1,14 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import type { Category } from "../../../../types/category";
 import type { TaskInfo } from "../../../../types/taskInfo";
+import type { Member } from "../../../../types/member";
 
 import { getTextColor } from "../../utils/getTextColor";
 import DeleteModal from "../modal/DeleteModal";
+import Avatar from "../../../../components/Avatar";
 
 type Props = {
   task: TaskInfo;
   // 未設定タスクは見つからないので任意
   category?: Category;
+  // 未割り当てタスクは見つからないので任意
+  assignee?: Member;
   // ドラッグ中のオーバーレイ表示では不要なため任意
   onAdvancePosition?: () => void;
   // ⋯メニューからの1件削除。オーバーレイでは渡されない
@@ -19,6 +23,7 @@ type Props = {
 const TaskCardContent = ({
   task,
   category,
+  assignee,
   onAdvancePosition,
   onDelete,
 }: Props) => {
@@ -78,12 +83,15 @@ const TaskCardContent = ({
         <div className="w-full line-clamp-2 wrap-break-word text-left">
           {task.name}
         </div>
-        <div className="text-gray-400 text-sm">
-          {task.deadline?.toLocaleDateString("ja-JP", {
-            year: "numeric",
-            month: "numeric",
-            day: "2-digit",
-          }) ?? "期限未設定"}
+        <div className="flex items-center gap-2 text-gray-400 text-sm">
+          <span>
+            {task.deadline?.toLocaleDateString("ja-JP", {
+              year: "numeric",
+              month: "numeric",
+              day: "2-digit",
+            }) ?? "期限未設定"}
+          </span>
+          {assignee && <Avatar name={assignee.name} size={20} />}
         </div>
         {/* メニューボタンとポジション移動ボタン（absolute） */}
         <div ref={menuRef} className="absolute top-1 right-1">

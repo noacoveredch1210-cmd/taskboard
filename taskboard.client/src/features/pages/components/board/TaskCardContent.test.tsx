@@ -12,6 +12,7 @@ const task: TaskInfo = {
   importance: 2,
   categoryId: "c1",
   positionId: "p1",
+  assigneeId: "",
   orderIndex: 0,
 };
 
@@ -85,5 +86,21 @@ describe("TaskCardContent", () => {
     );
     await user.click(roleButton("arrow_forward"));
     expect(onAdvancePosition).toHaveBeenCalledTimes(1);
+  });
+
+  it("担当者がいれば期限の隣にアバターを表示する", () => {
+    render(
+      <TaskCardContent
+        task={task}
+        category={category}
+        assignee={{ id: "u1", name: "太郎" }}
+      />,
+    );
+    expect(screen.getByLabelText("太郎")).toBeInTheDocument();
+  });
+
+  it("担当者が未設定ならアバターを表示しない", () => {
+    render(<TaskCardContent task={task} category={category} />);
+    expect(screen.queryByLabelText("太郎")).not.toBeInTheDocument();
   });
 });

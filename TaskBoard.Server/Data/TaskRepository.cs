@@ -8,7 +8,7 @@ namespace TaskBoard.Server.Data
     {
         private const string Columns =
             "id, board_id AS BoardId, position_id AS PositionId, " +
-            "category_id AS CategoryId, name, comment, importance, " +
+            "category_id AS CategoryId, assignee_id AS AssigneeId, name, comment, importance, " +
             "deadline, order_index AS OrderIndex, created_at AS CreatedAt";
 
         /// <summary>tasks の行が、認証ユーザーの参加する board に属することを要求する条件。</summary>
@@ -41,11 +41,11 @@ namespace TaskBoard.Server.Data
         public async Task<bool> CreateAsync(CreateTaskRequest request, Guid userId)
         {
             if (!await IsBoardMemberAsync(request.BoardId, userId)) return false;
-            if (!await CanAssignAsync(request.BoardId, request.PositionId, request.CategoryId)) return false;
+            if (!await CanAssignAsync(request.BoardId, request.PositionId, request.CategoryId, request.AssigneeId)) return false;
 
             const string sql = """
-            INSERT INTO tasks (id, board_id, position_id, category_id, name, comment, importance, deadline, order_index)
-            VALUES (@Id, @BoardId, @PositionId, @CategoryId, @Name, @Comment, @Importance, @Deadline, @OrderIndex)
+            INSERT INTO tasks (id, board_id, position_id, category_id, assignee_id, name, comment, importance, deadline, order_index)
+            VALUES (@Id, @BoardId, @PositionId, @CategoryId, @AssigneeId, @Name, @Comment, @Importance, @Deadline, @OrderIndex)
             """;
             await Connection.ExecuteAsync(sql, request);
             return true;
@@ -56,12 +56,13 @@ namespace TaskBoard.Server.Data
             // 所有権の確認と、移動先 board の特定を兼ねる。
             var boardId = await FindOwnedBoardIdAsync(id, userId);
             if (boardId is null) return false;
-            if (!await CanAssignAsync(boardId.Value, request.PositionId, request.CategoryId)) return false;
+            if (!await CanAssignAsync(boardId.Value, request.PositionId, request.CategoryId, request.AssigneeId)) return false;
 
             const string sql = """
             UPDATE tasks
             SET position_id = @PositionId,
                 category_id = @CategoryId,
+                assignee_id = @AssigneeId,
                 name = @Name,
                 comment = @Comment,
                 importance = @Importance,
@@ -74,6 +75,7 @@ namespace TaskBoard.Server.Data
                 Id = id,
                 request.PositionId,
                 request.CategoryId,
+                request.AssigneeId,
                 request.Name,
                 request.Comment,
                 request.Importance,
@@ -106,11 +108,12 @@ namespace TaskBoard.Server.Data
         }
 
         /// <summary>
-        /// 割り当て先の妥当性を確認する。position も category も同一 board のものに限る
-        /// （別 board のポジションやカテゴリーを task に紐付けさせない）。
+        /// 割り当て先の妥当性を確認する。position・category は同一 board のものに、
+        /// assignee は同一 board のメンバーに限る（他 board のポジション・カテゴリーや、
+        /// メンバーでないユーザーを task に紐付けさせない）。
         /// board のメンバーであることは呼び出し前に確認済みなので、ここでは board 一致だけ見る。
         /// </summary>
-        private async Task<bool> CanAssignAsync(Guid boardId, Guid? positionId, Guid? categoryId)
+        private async Task<bool> CanAssignAsync(Guid boardId, Guid? positionId, Guid? categoryId, Guid? assigneeId = null)
         {
             if (positionId is Guid position)
             {
@@ -123,6 +126,13 @@ namespace TaskBoard.Server.Data
             {
                 const string sql = "SELECT EXISTS (SELECT 1 FROM categories WHERE id = @Id AND board_id = @BoardId)";
                 if (!await Connection.ExecuteScalarAsync<bool>(sql, new { Id = category, BoardId = boardId }))
+                    return false;
+            }
+
+            if (assigneeId is Guid assignee)
+            {
+                const string sql = "SELECT EXISTS (SELECT 1 FROM board_members WHERE user_id = @Id AND board_id = @BoardId)";
+                if (!await Connection.ExecuteScalarAsync<bool>(sql, new { Id = assignee, BoardId = boardId }))
                     return false;
             }
 

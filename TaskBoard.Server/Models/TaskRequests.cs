@@ -8,6 +8,7 @@ namespace TaskBoard.Server.Models
         public Guid BoardId { get; set; }
         public Guid? PositionId { get; set; }
         public Guid? CategoryId { get; set; }
+        public Guid? AssigneeId { get; set; }
         [MaxLength(TextLimits.TaskName)]
         public string Name { get; set; } = string.Empty;
         [MaxLength(TextLimits.TaskComment)]
@@ -22,6 +23,7 @@ namespace TaskBoard.Server.Models
     {
         public Guid? PositionId { get; set; }
         public Guid? CategoryId { get; set; }
+        public Guid? AssigneeId { get; set; }
         [MaxLength(TextLimits.TaskName)]
         public string Name { get; set; } = string.Empty;
         [MaxLength(TextLimits.TaskComment)]

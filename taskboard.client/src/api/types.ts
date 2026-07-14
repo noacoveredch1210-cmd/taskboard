@@ -30,6 +30,7 @@ export type TaskDto = {
   boardId: string;
   positionId: string | null;
   categoryId: string | null;
+  assigneeId: string | null;
   name: string;
   comment: string | null;
   importance: number | null;
@@ -83,6 +84,7 @@ export type CreateTaskRequest = {
   boardId: string;
   positionId?: string | null;
   categoryId?: string | null;
+  assigneeId?: string | null;
   name: string;
   comment?: string | null;
   importance?: number | null;
@@ -92,6 +94,7 @@ export type CreateTaskRequest = {
 export type UpdateTaskRequest = {
   positionId?: string | null;
   categoryId?: string | null;
+  assigneeId?: string | null;
   name: string;
   comment?: string | null;
   importance?: number | null;

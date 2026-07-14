@@ -134,9 +134,11 @@ const Container = ({
               key={task.id}
               boardId={boardInfo.id}
               task={task}
-              positionName={positionName}
               category={categories.find((item) => item.id === task.categoryId)}
               categories={categories}
+              positions={boardInfo.positions}
+              assignee={boardInfo.members?.find((m) => m.id === task.assigneeId)}
+              members={boardInfo.members}
               isSelectMode={selectable}
               checked={selectedTaskIds.includes(task.id)}
               onToggleSelect={onToggleTaskSelect}
@@ -169,9 +171,9 @@ const Container = ({
       {openTaskModal && (
         <TaskModal
           boardId={boardInfo.id}
-          positionId={boardInfo.positions[positionIdx]?.id}
-          positionName={positionName}
+          positions={boardInfo.positions}
           categories={categories}
+          members={boardInfo.members}
           onSaveTask={onSaveTask}
           onCreateCategory={onCreateCategory}
           onClose={() => setOpenTaskModal(false)}

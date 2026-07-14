@@ -4,8 +4,15 @@ import userEvent from "@testing-library/user-event";
 import TaskModal from "./TaskModal";
 import type { TaskInfo } from "../../../../types/taskInfo";
 import type { Category } from "../../../../types/category";
+import type { Position } from "../../../../types/position";
+import type { Member } from "../../../../types/member";
 
 const categories: Category[] = [{ id: "c1", name: "仕事", color: "#ff0000" }];
+const positions: Position[] = [
+  { id: "p1", name: "Todo" },
+  { id: "p2", name: "Doing" },
+];
+const members: Member[] = [{ id: "u1", name: "太郎" }];
 
 const renderNew = () => {
   const onSaveTask = vi.fn();
@@ -13,9 +20,9 @@ const renderNew = () => {
   render(
     <TaskModal
       boardId="b1"
-      positionId="p1"
-      positionName="Todo"
+      positions={positions}
       categories={categories}
+      members={members}
       onSaveTask={onSaveTask}
       onCreateCategory={vi.fn()}
       onClose={onClose}
@@ -38,10 +45,10 @@ describe("TaskModal（新規）", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("名前・重要度を入力して保存すると onSaveTask を呼ぶ", async () => {    const { onSaveTask } = renderNew();
+  it("名前・重要度を入力して保存すると onSaveTask を呼ぶ（positionは先頭を既定にする）", async () => {    const { onSaveTask } = renderNew();
     await user.type(screen.getByPlaceholderText("タスク名を入力..."), "買い物");
-    // combobox は [0]=重要度, [1]=カテゴリー
-    const [importance, category] = screen.getAllByRole("combobox");
+    // combobox は [0]=ポジション, [1]=重要度, [2]=カテゴリー, [3]=担当者
+    const [, importance, category] = screen.getAllByRole("combobox");
     await user.selectOptions(importance, "2");
     await user.selectOptions(category, "c1");
 
@@ -53,8 +60,29 @@ describe("TaskModal（新規）", () => {
       name: "買い物",
       importance: 2,
       categoryId: "c1",
+      // 一番左(先頭)のpositionが既定値になる
       positionId: "p1",
+      assigneeId: "",
     });
+  });
+
+  it("担当者・ポジションをプルダウンで選んで保存する", async () => {    const { onSaveTask } = renderNew();
+    await user.type(screen.getByPlaceholderText("タスク名を入力..."), "買い物");
+    const [position, , , assignee] = screen.getAllByRole("combobox");
+    await user.selectOptions(assignee, "u1");
+    await user.selectOptions(position, "p2");
+
+    await user.click(screen.getByText("保存"));
+    const [, task] = onSaveTask.mock.calls[0] as [string, TaskInfo];
+    expect(task.assigneeId).toBe("u1");
+    expect(task.positionId).toBe("p2");
+  });
+
+  it("担当者を選ぶと選択中のアバターを表示する", async () => {    renderNew();
+    expect(screen.queryByLabelText("太郎")).not.toBeInTheDocument();
+    const [, , , assignee] = screen.getAllByRole("combobox");
+    await user.selectOptions(assignee, "u1");
+    expect(screen.getByLabelText("太郎")).toBeInTheDocument();
   });
 
   it("カテゴリー追加ボタンで CategoryModal を開く", async () => {    renderNew();
@@ -99,6 +127,7 @@ describe("TaskModal（編集）", () => {
       importance: 3,
       categoryId: "c1",
       positionId: "p1",
+      assigneeId: "u1",
       orderIndex: 0,
     };
     const onSaveTask = vi.fn();
@@ -106,8 +135,9 @@ describe("TaskModal（編集）", () => {
       <TaskModal
         boardId="b1"
         task={task}
-        positionName="Todo"
+        positions={positions}
         categories={categories}
+        members={members}
         onSaveTask={onSaveTask}
         onCreateCategory={vi.fn()}
         onClose={vi.fn()}

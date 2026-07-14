@@ -1,6 +1,7 @@
 import type { TaskInfo } from "./taskInfo";
 import type { Position } from "./position";
 import type { Category } from "./category";
+import type { Member } from "./member";
 
 export type BoardRole = "owner" | "member";
 
@@ -13,5 +14,7 @@ export type BoardInfo = {
   positions: Position[];
   /** このボードのカテゴリー（ボード単位で共有される）。 */
   categories: Category[];
+  /** このボードのメンバー（担当者選択に使う）。 */
+  members?: Member[];
   tasks?: TaskInfo[];
 };

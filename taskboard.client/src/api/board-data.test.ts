@@ -7,9 +7,12 @@ const mocks = vi.hoisted(() => ({
   getMe: vi.fn(),
   getPositionsByBoard: vi.fn(),
   getTasksByBoard: vi.fn(),
+  getMembers: vi.fn(),
 }));
 
-vi.mock("./boards", () => ({ boardsApi: { getMine: mocks.getMineBoards } }));
+vi.mock("./boards", () => ({
+  boardsApi: { getMine: mocks.getMineBoards, getMembers: mocks.getMembers },
+}));
 vi.mock("./categories", () => ({
   categoriesApi: { getByBoard: mocks.getCategoriesByBoard },
 }));
@@ -43,6 +46,7 @@ const baseTask: TaskInfo = {
   deadline: new Date(2026, 6, 8), // ローカル 2026-07-08
   categoryId: "cat-1",
   positionId: "pos-1",
+  assigneeId: "assignee-1",
   orderIndex: 1.5,
 };
 
@@ -70,6 +74,7 @@ const taskDto = (over: Partial<TaskDto> = {}): TaskDto => ({
   boardId: "board-1",
   positionId: "pos-1",
   categoryId: "cat-1",
+  assigneeId: "assignee-1",
   name: "タスク名",
   comment: "コメント",
   importance: 2,
@@ -81,8 +86,9 @@ const taskDto = (over: Partial<TaskDto> = {}): TaskDto => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // loadBoards は board ごとにカテゴリーも引く。既定は空にしておく。
+  // loadBoards は board ごとにカテゴリー・メンバーも引く。既定は空にしておく。
   mocks.getCategoriesByBoard.mockResolvedValue([]);
+  mocks.getMembers.mockResolvedValue([]);
 });
 
 describe("loadBoards", () => {
@@ -303,6 +309,7 @@ describe("DTO → UI → DTO の往復", () => {
     expect(req).toEqual({
       positionId: "pos-1",
       categoryId: "cat-1",
+      assigneeId: "assignee-1",
       name: "タスク名",
       comment: "コメント",
       importance: 2,

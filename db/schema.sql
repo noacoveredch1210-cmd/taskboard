@@ -80,6 +80,8 @@ CREATE TABLE tasks (
     -- 列やカテゴリーを消してもタスクは残す（未配置・未分類になる）。
     position_id  uuid             REFERENCES positions (id) ON DELETE SET NULL,
     category_id  uuid             REFERENCES categories (id) ON DELETE SET NULL,
+    -- 担当者。board_members から外れてもタスクは残す（未担当に戻る）。
+    assignee_id  uuid             REFERENCES users (id) ON DELETE SET NULL,
     name         varchar          NOT NULL,
     comment      text,
     importance   integer,
@@ -100,6 +102,7 @@ CREATE INDEX positions_board_id_idx       ON positions     (board_id);
 CREATE INDEX tasks_board_id_idx           ON tasks         (board_id);
 CREATE INDEX tasks_position_id_idx        ON tasks         (position_id);
 CREATE INDEX tasks_category_id_idx        ON tasks         (category_id);
+CREATE INDEX tasks_assignee_id_idx        ON tasks         (assignee_id);
 
 -- varchar の長さ上限は本番未確認のため、ここでは無制限として書いている。
 -- 入力長は Models/TextLimits.cs の [MaxLength] で 400 として弾くため、列側の制約には依存しない。

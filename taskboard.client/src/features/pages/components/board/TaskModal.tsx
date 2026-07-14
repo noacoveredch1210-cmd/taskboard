@@ -3,18 +3,21 @@ import ModalBase from "../ModalBase";
 import CategoryModal from "../modal/CategoryModal";
 import type { TaskInfo } from "../../../../types/taskInfo";
 import type { Category } from "../../../../types/category";
+import type { Position } from "../../../../types/position";
+import type { Member } from "../../../../types/member";
 import SaveButton from "../button/SaveButton";
 import BackButton from "../button/BackButton";
 import CharCounter from "../../../../components/CharCounter";
+import Avatar from "../../../../components/Avatar";
 import { TEXT_LIMITS } from "../../../../constants/textLimits";
 
 export type TaskModalProps = {
   boardId: string;
   task?: TaskInfo;
-  // 新規作成時の作成先position(編集時は不要)
-  positionId?: string;
-  positionName: string;
+  // 新規作成時、未指定なら先頭(一番左)のpositionを既定にする
+  positions?: Position[];
   categories?: Category[];
+  members?: Member[];
   // 保存(idが既存なら更新、無ければ追加のupsert)
   onSaveTask: (boardId: string, task: TaskInfo) => void;
   onCreateCategory: (name: string, color: string) => void;
@@ -26,9 +29,9 @@ const blank = "　";
 const TaskModal = ({
   boardId,
   task,
-  positionId,
-  positionName,
+  positions,
   categories,
+  members,
   onSaveTask,
   onCreateCategory,
   onClose,
@@ -42,13 +45,16 @@ const TaskModal = ({
       comment: "",
       importance: 0,
       categoryId: "",
-      positionId: positionId ?? "",
+      positionId: positions?.[0]?.id ?? "",
+      assigneeId: "",
       // 実際の値は保存時に「作成先カラムの末尾」として採番される
       orderIndex: 0,
     },
   );
 
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+
+  const selectedAssignee = members?.find((m) => m.id === draftTask.assigneeId);
 
   // Date → "YYYY-MM-DD"(ローカル時間基準。UTC変換による日ズレを防ぐ)
   const formatDate = (date?: Date) => {
@@ -91,7 +97,6 @@ const TaskModal = ({
             max={TEXT_LIMITS.taskName}
           />
         </div>
-        <div className=" text-gray-500 px-2">{positionName}</div>
       </div>
       <div className="bg-primary-light rounded p-3 flex flex-col gap-5">
         <div>
@@ -117,7 +122,25 @@ const TaskModal = ({
             max={TEXT_LIMITS.taskComment}
           />
         </div>
-        <div className="grid grid-cols-2 grid-rows-3 w-80 gap-3">
+        <div className="grid grid-cols-2 grid-rows-5 w-80 gap-3">
+          <div>ポジション</div>
+          <select
+            value={draftTask.positionId}
+            onChange={(e) =>
+              setDraftTask((prev) => ({
+                ...prev,
+                positionId: e.target.value,
+              }))
+            }
+            className="border rounded bg-white w-50 px-2"
+          >
+            {positions?.map((position) => (
+              <option key={position.id} value={position.id}>
+                {position.name}
+              </option>
+            ))}
+          </select>
+
           <div className="grid col-span-1">優先度・重要度</div>
           <select
             value={draftTask.importance}
@@ -173,6 +196,37 @@ const TaskModal = ({
             >
               <span className="material-symbols-outlined">add</span>
             </button>
+          </div>
+
+          <div>担当者</div>
+          <div className="relative w-50">
+            {/* select内の左パディングに重ねるアイコン(select自体はアイコンを内包できないため) */}
+            <span className="absolute inset-y-0 left-2 flex items-center pointer-events-none">
+              {selectedAssignee ? (
+                <Avatar name={selectedAssignee.name} size={18} />
+              ) : (
+                <span className="material-symbols-outlined text-gray-400 text-base!">
+                  person
+                </span>
+              )}
+            </span>
+            <select
+              value={draftTask.assigneeId}
+              onChange={(e) =>
+                setDraftTask((prev) => ({
+                  ...prev,
+                  assigneeId: e.target.value,
+                }))
+              }
+              className="border rounded bg-white w-full pl-8 pr-2"
+            >
+              <option value="">未設定</option>
+              {members?.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {member.name}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       </div>

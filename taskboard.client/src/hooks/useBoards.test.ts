@@ -76,6 +76,7 @@ const task = (overrides: Partial<TaskInfo> & { id: string }): TaskInfo => ({
   importance: 0,
   categoryId: "",
   positionId: "pos-1",
+  assigneeId: "",
   orderIndex: 0,
   ...overrides,
 });

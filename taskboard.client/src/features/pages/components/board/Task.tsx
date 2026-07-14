@@ -1,5 +1,7 @@
 import type { Category } from "../../../../types/category";
 import type { TaskInfo } from "../../../../types/taskInfo";
+import type { Position } from "../../../../types/position";
+import type { Member } from "../../../../types/member";
 import TaskModal from "./TaskModal";
 import TaskCardContent from "./TaskCardContent";
 import { useState } from "react";
@@ -9,10 +11,13 @@ import { CSS } from "@dnd-kit/utilities";
 type Props = {
   boardId: string;
   task: TaskInfo;
-  positionName: string;
   // 未設定タスクは見つからないので任意
   category?: Category;
   categories?: Category[];
+  positions?: Position[];
+  // 未割り当てタスクは見つからないので任意
+  assignee?: Member;
+  members?: Member[];
   onSaveTask: (boardId: string, task: TaskInfo) => void;
   onCreateCategory: (name: string, color: string) => void;
   // 最後のコンテナでは渡されない（進むボタンを出さないため）
@@ -28,9 +33,11 @@ type Props = {
 const Task = ({
   boardId,
   task,
-  positionName,
   category,
   categories,
+  positions,
+  assignee,
+  members,
   onSaveTask,
   onCreateCategory,
   onAdvancePosition,
@@ -79,6 +86,7 @@ const Task = ({
           <TaskCardContent
             task={task}
             category={category}
+            assignee={assignee}
             onAdvancePosition={onAdvancePosition}
             onDelete={onDelete}
           />
@@ -96,8 +104,9 @@ const Task = ({
         <TaskModal
           boardId={boardId}
           task={task}
-          positionName={positionName}
           categories={categories}
+          positions={positions}
+          members={members}
           onSaveTask={onSaveTask}
           onCreateCategory={onCreateCategory}
           onClose={() => setOpenTaskModal(false)}

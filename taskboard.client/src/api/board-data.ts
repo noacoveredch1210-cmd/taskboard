@@ -12,6 +12,7 @@ import type {
   CategoryDto,
   PositionDto,
   UserDto,
+  BoardMemberDto,
   CreateTaskRequest,
   UpdateTaskRequest,
 } from "./types";
@@ -21,6 +22,7 @@ import type { BoardInfo } from "../types/boardInfo";
 import type { Category } from "../types/category";
 import type { TaskInfo } from "../types/taskInfo";
 import type { Position } from "../types/position";
+import type { Member } from "../types/member";
 
 /**
  * 指定ユーザーの board 一覧を取得し、UI 用のネスト構造へ組み立てる。
@@ -31,12 +33,13 @@ export const loadBoards = async (): Promise<BoardInfo[]> => {
 
   return Promise.all(
     boardDtos.map(async (board) => {
-      const [positions, tasks, categories] = await Promise.all([
+      const [positions, tasks, categories, members] = await Promise.all([
         positionsApi.getByBoard(board.id),
         tasksApi.getByBoard(board.id),
         categoriesApi.getByBoard(board.id),
+        boardsApi.getMembers(board.id),
       ]);
-      return toBoardInfo(board, positions, tasks, categories);
+      return toBoardInfo(board, positions, tasks, categories, members);
     }),
   );
 };
@@ -61,11 +64,16 @@ const toPosition = (dto: PositionDto): Position => {
   return { id: dto.id, name: dto.name };
 };
 
+const toMember = (dto: BoardMemberDto): Member => {
+  return { id: dto.userId, name: dto.name };
+};
+
 const toBoardInfo = (
   board: BoardDto,
   positions: PositionDto[],
   tasks: TaskDto[],
   categories: CategoryDto[],
+  members: BoardMemberDto[],
 ): BoardInfo => {
   return {
     id: board.id,
@@ -74,6 +82,7 @@ const toBoardInfo = (
     role: board.role,
     positions: positions.map(toPosition),
     categories: categories.map(toCategory),
+    members: members.map(toMember),
     tasks: tasks.map(toTaskInfo),
   };
 };
@@ -88,6 +97,7 @@ const toTaskInfo = (dto: TaskDto): TaskInfo => {
     // 未設定は空文字（既存 UI の規約に合わせる）
     categoryId: dto.categoryId ?? "",
     positionId: dto.positionId ?? "",
+    assigneeId: dto.assigneeId ?? "",
     orderIndex: dto.orderIndex,
   };
 };
@@ -114,6 +124,7 @@ export const toUpdateTaskRequest = (task: TaskInfo): UpdateTaskRequest => {
   return {
     positionId: task.positionId || null,
     categoryId: task.categoryId || null,
+    assigneeId: task.assigneeId || null,
     name: task.name,
     comment: task.comment,
     importance: task.importance,
@@ -132,6 +143,7 @@ export const toCreateTaskRequest = (
     boardId,
     positionId: task.positionId || null,
     categoryId: task.categoryId || null,
+    assigneeId: task.assigneeId || null,
     name: task.name,
     comment: task.comment,
     importance: task.importance,

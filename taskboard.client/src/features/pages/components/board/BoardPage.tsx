@@ -200,9 +200,12 @@ const BoardPage = ({
   }
   // #endregion
 
-  // ドラッグ中のカードに表示するカテゴリ(未設定なら undefined)
+  // ドラッグ中のカードに表示するカテゴリ・担当者(未設定なら undefined)
   const activeCategory = categories.find(
     (c) => c.id === activeTask?.categoryId,
+  );
+  const activeAssignee = boardInfo.members?.find(
+    (m) => m.id === activeTask?.assigneeId,
   );
 
   // position の並び順（純粋関数へ渡す）
@@ -361,7 +364,11 @@ const BoardPage = ({
         <DragOverlay>
           {activeTask ? (
             <div className="border rounded flex relative bg-white shadow-2xl cursor-grabbing w-54">
-              <TaskCardContent task={activeTask} category={activeCategory} />
+              <TaskCardContent
+                task={activeTask}
+                category={activeCategory}
+                assignee={activeAssignee}
+              />
             </div>
           ) : null}
         </DragOverlay>
