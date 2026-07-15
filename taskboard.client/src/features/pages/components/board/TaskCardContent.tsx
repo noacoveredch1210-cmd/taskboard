@@ -70,7 +70,7 @@ const TaskCardContent = ({
         <div
           className={`${importanceColor} w-3 shrink-0 self-stretch border-r rounded-l`}
         ></div>
-        <div className="p-2 flex-1 min-w-0 items-start flex flex-col gap-2">
+        <div className="p-2 flex-1 min-w-0 items-start justify-center flex flex-col gap-2">
           <div
             className="inline-block px-2 rounded text-sm"
             style={{
@@ -80,7 +80,7 @@ const TaskCardContent = ({
           >
             {category?.name ?? "未設定"}
           </div>
-          <div className="w-full line-clamp-2 wrap-break-word text-left">
+          <div className="w-full line-clamp-2 text-left  contain-[inline-size]">
             {task.name}
           </div>
           <div className="flex items-center gap-2 text-gray-400 text-sm">

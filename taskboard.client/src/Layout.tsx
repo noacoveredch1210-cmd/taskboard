@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import Header from "./features/header/index.tsx";
-import Sidebar from "./features/sidebar/index.tsx";
-import Pages from "./features/pages/index.tsx";
-import AI from "./features/AI/index.tsx";
-import ErrorScreen from "./components/ErrorScreen.tsx";
-import { useBoards } from "./hooks/useBoards.ts";
-import { useUser } from "./hooks/useUser.ts";
-import Loading from "./components/Loading.tsx";
-import type { Position } from "./types/position.ts";
+import Header from "./features/header/index";
+import Sidebar from "./features/sidebar/index";
+import Pages from "./features/pages/index";
+import AI from "./features/AI/index";
+import ErrorScreen from "./components/ErrorScreen";
+import { useBoards } from "./hooks/useBoards";
+import { useUser } from "./hooks/useUser";
+import Loading from "./components/Loading";
+import type { Position } from "./types/position";
+import { Group, Panel, Separator, usePanelRef } from "react-resizable-panels";
 
 const Layout = () => {
   // データ取得・更新はフックに委譲(いずれもオプティミスティック更新)。
@@ -70,9 +71,16 @@ const Layout = () => {
   };
 
   // AIウィンドウを開くときはサイドバーを閉じる
+  const aiPanelRef = usePanelRef();
+
   const toggleAIWindow = () => {
-    const willOpen = !openAIWindow;
-    setOpenAIWindow(willOpen);
+    const panel = aiPanelRef.current;
+    if (!panel) return;
+    if (panel.isCollapsed()) {
+      panel.expand();
+    } else {
+      panel.collapse();
+    }
   };
 
   // 初期取得に失敗したら、アプリ本体の代わりにエラー画面を表示する
@@ -92,46 +100,64 @@ const Layout = () => {
           toggleSidebar={() => setOpenSidebar((prev) => !prev)}
         />
       </div>
-      <div className="w-full flex flex-col min-w-0">
-        <div>
-          <Header
-            title={
-              openingPageIndex === null
-                ? "ホーム画面"
-                : (boards[openingPageIndex]?.title ?? "")
-            }
-            boardId={
-              openingPageIndex === null
-                ? undefined
-                : boards[openingPageIndex]?.id
-            }
-          />
-        </div>
-        <div className="flex-1 min-h-0 overflow-x-auto">
-          <Pages
-            userInfo={userInfo}
-            boards={boards}
-            openingPageIndex={openingPageIndex}
-            onSaveTask={saveTask}
-            onSetCategory={setCategory}
-            onCreateCategory={createCategory}
-            onDeleteCategories={deleteCategories}
-            onSetBoard={setBoard}
-            onCreateBoard={handleCreateBoard}
-            onDeleteBoards={deleteBoards}
-            onReorderTasks={reorderTasks}
-            onCommitTaskMove={commitTaskMove}
-            onDeleteTasks={deleteTasks}
-            onGetShareLink={getShareLink}
-            onJoinBoard={joinBoard}
-            onLeaveBoard={handleLeaveBoard}
-            onRestoreTask={restoreTask}
-          />
-        </div>
-      </div>
-      <div className={openAIWindow ? "w-90" : "w-10"}>
-        <AI isOpen={openAIWindow} toggleAIWindow={toggleAIWindow} />
-      </div>
+
+      <Group orientation="horizontal" className="flex-1 min-w-0">
+        <Panel defaultSize="75%" minSize="30%">
+          <div className="h-full flex flex-col min-w-0">
+            <Header
+              title={
+                openingPageIndex === null
+                  ? "ホーム画面"
+                  : (boards[openingPageIndex]?.title ?? "")
+              }
+              boardId={
+                openingPageIndex === null
+                  ? undefined
+                  : boards[openingPageIndex]?.id
+              }
+            />
+
+            <div className="flex-1 min-h-0 overflow-x-auto">
+              <Pages
+                userInfo={userInfo}
+                boards={boards}
+                openingPageIndex={openingPageIndex}
+                onSaveTask={saveTask}
+                onSetCategory={setCategory}
+                onCreateCategory={createCategory}
+                onDeleteCategories={deleteCategories}
+                onSetBoard={setBoard}
+                onCreateBoard={handleCreateBoard}
+                onDeleteBoards={deleteBoards}
+                onReorderTasks={reorderTasks}
+                onCommitTaskMove={commitTaskMove}
+                onDeleteTasks={deleteTasks}
+                onGetShareLink={getShareLink}
+                onJoinBoard={joinBoard}
+                onLeaveBoard={handleLeaveBoard}
+                onRestoreTask={restoreTask}
+              />
+            </div>
+          </div>
+        </Panel>
+
+        <Separator className="w-1 bg-gray-200 hover:bg-primary transition-colors" />
+
+        <Panel
+          panelRef={aiPanelRef}
+          defaultSize="35%"
+          minSize="15%"
+          maxSize="45%"
+          collapsible
+          collapsedSize="4%"
+          onResize={() => {
+            const panel = aiPanelRef.current;
+            if (panel) setOpenAIWindow(!panel.isCollapsed());
+          }}
+        >
+          <AI isOpen={openAIWindow} toggleAIWindow={toggleAIWindow} />
+        </Panel>
+      </Group>
     </div>
   );
 };

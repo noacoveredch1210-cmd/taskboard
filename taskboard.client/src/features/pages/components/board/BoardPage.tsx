@@ -91,6 +91,13 @@ const BoardPage = ({
   // ドラッグ開始時点のタスクの並び(保存に失敗したときの巻き戻し先)
   const tasksBeforeDragRef = useRef<TaskInfo[]>([]);
 
+  // 各カラムの幅(px)。未設定のカラムはデフォルト幅(240px)を使う
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+
+  const handleResizeColumn = (positionId: string, width: number) => {
+    setColumnWidths((prev) => ({ ...prev, [positionId]: width }));
+  };
+
   // #region 最後のコンテナのタスク選択・削除
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
@@ -359,6 +366,7 @@ const BoardPage = ({
               canDelete={canDelete}
               isSelectMode={isSelectMode}
               selectedTaskIds={selectedTaskIds}
+              width={columnWidths[position.id]}
               onToggleSelectMode={toggleSelectMode}
               onToggleTaskSelect={toggleTaskSelect}
               onSetSelectedTaskIds={setSelectedTaskIds}
@@ -367,12 +375,13 @@ const BoardPage = ({
               onSaveTask={onSaveTask}
               onCreateCategory={createCategory}
               onAdvancePosition={handleAdvancePosition}
+              onResizeWidth={(width) => handleResizeColumn(position.id, width)}
             />
           ))}
         </div>
         <DragOverlay>
           {activeTask ? (
-            <div className="border rounded flex relative bg-white shadow-2xl cursor-grabbing w-54">
+            <div className="border rounded h-35 flex relative bg-white shadow-2xl cursor-grabbing w-54">
               <TaskCardContent
                 task={activeTask}
                 category={activeCategory}

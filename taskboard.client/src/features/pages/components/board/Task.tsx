@@ -71,14 +71,14 @@ const Task = ({
 
   return (
     <>
-      <div className="flex gap-2 items-center">
+      <div className="flex gap-2 items-center w-full min-w-0">
         <button
           ref={setNodeRef}
           style={sortableStyle}
           {...attributes}
           {...listeners}
           data-testid={`task-${task.id}`}
-          className="border rounded flex relative group hover:shadow-lg touch-none flex-1 min-w-0"
+          className="border rounded flex relative h-35 justify-center group hover:shadow-lg touch-none flex-1 min-w-0"
           onClick={() =>
             isSelectMode ? onToggleSelect?.(task.id) : setOpenTaskModal(true)
           }

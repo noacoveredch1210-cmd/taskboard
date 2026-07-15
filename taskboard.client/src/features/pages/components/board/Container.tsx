@@ -28,6 +28,7 @@ type Props = {
   canDelete: boolean;
   isSelectMode: boolean;
   selectedTaskIds: string[];
+  width: number | undefined;
   onToggleSelectMode: () => void;
   onToggleTaskSelect: (id: string) => void;
   onSetSelectedTaskIds: (ids: string[]) => void;
@@ -36,6 +37,7 @@ type Props = {
   onSaveTask: (boardId: string, task: TaskInfo) => void;
   onCreateCategory: (name: string, color: string) => void;
   onAdvancePosition: (task: TaskInfo) => void;
+  onResizeWidth: (width: number) => void;
 };
 
 const Container = ({
@@ -50,6 +52,7 @@ const Container = ({
   canDelete,
   isSelectMode,
   selectedTaskIds,
+  width,
   onToggleSelectMode,
   onToggleTaskSelect,
   onSetSelectedTaskIds,
@@ -58,12 +61,47 @@ const Container = ({
   onSaveTask,
   onCreateCategory,
   onAdvancePosition,
+  onResizeWidth,
 }: Props) => {
   // 空コンテナにもドロップできるよう、コンテナ自体をドロップ領域にする
   const { setNodeRef } = useDroppable({ id: columnId });
 
   // タスク新規作成管理
   const [openTaskModal, setOpenTaskModal] = useState(false);
+
+  // #region 右端ドラッグでの幅リサイズ
+  const isResizingRef = useRef(false);
+  const startXRef = useRef(0);
+  const startWidthRef = useRef(0);
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizingRef.current = true;
+    startXRef.current = e.clientX;
+    // まだリサイズしたことが無ければ、今の実測幅(rootRef)を起点にする
+    startWidthRef.current = width ?? rootRef.current?.offsetWidth ?? 280;
+    document.body.style.cursor = "col-resize";
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizingRef.current) return;
+      const delta = e.clientX - startXRef.current;
+      const next = Math.min(Math.max(startWidthRef.current + delta, 200), 600);
+      onResizeWidth(next);
+    };
+    const handleMouseUp = () => {
+      isResizingRef.current = false;
+      document.body.style.cursor = "";
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [onResizeWidth]);
+  // #endregion
 
   // #region 最後のコンテナ、選択関係
   // 選択・削除は最後のコンテナのタスクだけを対象にする
@@ -92,7 +130,14 @@ const Container = ({
   return (
     <div
       ref={rootRef}
-      className="bg-white w-60 h-full p-3 shrink-0 gap-3 flex flex-col relative"
+      style={{
+        width: width !== undefined ? `${width}px` : undefined,
+      }}
+      className={
+        width !== undefined
+          ? "bg-white h-full p-3 shrink-0 gap-3 flex flex-col relative"
+          : "bg-white h-full p-3 shrink-0 gap-3 flex flex-col relative w-[clamp(240px,16vw,400px)]"
+      }
     >
       <div className="flex justify-between items-center">
         <div className="flex gap-3 items-center">
@@ -130,7 +175,7 @@ const Container = ({
         <div
           ref={setNodeRef}
           data-testid={columnId}
-          className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto"
+          className="grid content-start gap-3 flex-1 min-h-0 overflow-y-auto grid-cols-[repeat(auto-fill,minmax(140px,1fr))]"
         >
           {tasks.map((task) => (
             <Task
@@ -157,6 +202,12 @@ const Container = ({
           ))}
         </div>
       </SortableContext>
+      {/* 右端のドラッグハンドル */}
+      <div
+        onMouseDown={handleResizeStart}
+        className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-primary transition-colors"
+      />
+
       {selectable && (
         // コンテナのp-3を打ち消して下端いっぱいに敷く
         <div className="-mx-3 -mb-3">
