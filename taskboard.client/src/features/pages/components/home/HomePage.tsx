@@ -10,6 +10,7 @@ import JoinBoardButton from "./JoinBoardButton";
 import CreateButton from "../CreateButton";
 import { useState } from "react";
 import BoardModal from "./board/BoardModal";
+import WelcomeModal from "./WelcomeModal";
 import Hint from "./Hint";
 
 type Props = {
@@ -34,6 +35,17 @@ const HomePage = ({
   onJoinBoard,
 }: Props) => {
   const [openCreateBoardModal, setOpenCreateBoardModal] = useState(false);
+  // board が 0 件のときは、起動（マウント）ごとにウェルカムを出す。
+  // 閉じるのはこのセッション限り（次回起動時にまた案内する）。
+  const [showWelcome, setShowWelcome] = useState(() => boards.length === 0);
+
+  const dismissWelcome = () => setShowWelcome(false);
+
+  const startCreateFromWelcome = () => {
+    setShowWelcome(false);
+    setOpenCreateBoardModal(true);
+  };
+
   return (
     <div className="p-10 flex flex-col gap-3">
       <div className="flex pb-5 flex-wrap items-center gap-5">
@@ -46,7 +58,7 @@ const HomePage = ({
           onOpenModal={() => setOpenCreateBoardModal(true)}
         />
         <JoinBoardButton onJoinBoard={onJoinBoard} />
-        <Hint />
+        {boards.length === 0 && <Hint />}
       </div>
       <BoardView
         boards={boards}
@@ -61,6 +73,12 @@ const HomePage = ({
         <BoardModal
           onClose={() => setOpenCreateBoardModal(false)}
           onCreateBoard={onCreateBoard}
+        />
+      )}
+      {showWelcome && (
+        <WelcomeModal
+          onCreateBoard={startCreateFromWelcome}
+          onClose={dismissWelcome}
         />
       )}
     </div>

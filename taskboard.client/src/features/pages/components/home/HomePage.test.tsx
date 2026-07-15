@@ -30,11 +30,11 @@ const boards: BoardInfo[] = [
   },
 ];
 
-const renderHome = () =>
+const renderWith = (boardList: BoardInfo[]) =>
   render(
     <HomePage
       userInfo={userInfo}
-      boards={boards}
+      boards={boardList}
       onSetBoard={vi.fn()}
       onCreateBoard={vi.fn()}
       onDeleteBoards={vi.fn()}
@@ -42,11 +42,14 @@ const renderHome = () =>
     />,
   );
 
+const renderHome = () => renderWith(boards);
+
 // 各テストごとに新しい user を用意し、入力状態がテスト間で漏れないようにする
 let user: ReturnType<typeof userEvent.setup>;
 
 beforeEach(() => {
   user = userEvent.setup();
+  localStorage.clear(); // ウェルカム表示フラグをテスト間で持ち越さない
 });
 
 describe("HomePage", () => {
@@ -79,5 +82,32 @@ describe("HomePage", () => {
     renderHome();
     await user.click(screen.getByText("ボードの追加").closest("button")!);
     expect(screen.getByText("board 追加")).toBeInTheDocument();
+  });
+});
+
+describe("HomePage（起動時ウェルカム）", () => {
+  const welcomeTitle = "TaskBoard へようこそ 🎉";
+
+  it("board が 0 件なら起動時にウェルカムを表示する", () => {
+    renderWith([]);
+    expect(screen.getByText(welcomeTitle)).toBeInTheDocument();
+  });
+
+  it("board があればウェルカムを出さない", () => {
+    renderHome();
+    expect(screen.queryByText(welcomeTitle)).not.toBeInTheDocument();
+  });
+
+  it("「あとで」で閉じる", async () => {
+    renderWith([]);
+    await user.click(screen.getByRole("button", { name: "あとで" }));
+    expect(screen.queryByText(welcomeTitle)).not.toBeInTheDocument();
+  });
+
+  it("「ボードを作る」でウェルカムを閉じ、作成モーダルを開く", async () => {
+    renderWith([]);
+    await user.click(screen.getByRole("button", { name: "ボードを作る" }));
+    expect(screen.queryByText(welcomeTitle)).not.toBeInTheDocument();
+    expect(screen.getByText("board 追加")).toBeInTheDocument(); // 作成モーダル
   });
 });

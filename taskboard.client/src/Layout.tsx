@@ -7,6 +7,7 @@ import ErrorScreen from "./components/ErrorScreen.tsx";
 import { useBoards } from "./hooks/useBoards.ts";
 import { useUser } from "./hooks/useUser.ts";
 import Loading from "./components/Loading.tsx";
+import type { Position } from "./types/position.ts";
 
 const Layout = () => {
   // データ取得・更新はフックに委譲(いずれもオプティミスティック更新)。
@@ -34,7 +35,7 @@ const Layout = () => {
   // 初期表示はホーム画面（データ取得完了前に board を参照して落ちるのを防ぐ）
   const [openingPageIndex, setOpeningPageIndex] = useState<number | null>(null);
   const [openSidebar, setOpenSidebar] = useState(true);
-  const [openAIWindow, setOpenAIWindow] = useState(false);
+  const [openAIWindow, setOpenAIWindow] = useState(true);
   // 以前は board 0 件で作成モーダルを自動表示していたが、共有ボードに「参加する」
   // ユーザー（作成しない）には邪魔なので廃止した。作成はホームの + から行う。
 
@@ -57,11 +58,20 @@ const Layout = () => {
     return ok;
   };
 
+  // ボードを作ったら、そのまま作成したボードを開く（新規 board は末尾に追加される）。
+  const handleCreateBoard = (
+    title: string,
+    shortName: string,
+    positions: Position[],
+  ) => {
+    createBoard(title, shortName, positions);
+    setOpeningPageIndex(boards.length);
+  };
+
   // AIウィンドウを開くときはサイドバーを閉じる
   const toggleAIWindow = () => {
     const willOpen = !openAIWindow;
     setOpenAIWindow(willOpen);
-    if (willOpen) setOpenSidebar(false);
   };
 
   // 初期取得に失敗したら、アプリ本体の代わりにエラー画面を表示する
@@ -106,7 +116,7 @@ const Layout = () => {
             onCreateCategory={createCategory}
             onDeleteCategories={deleteCategories}
             onSetBoard={setBoard}
-            onCreateBoard={createBoard}
+            onCreateBoard={handleCreateBoard}
             onDeleteBoards={deleteBoards}
             onReorderTasks={reorderTasks}
             onCommitTaskMove={commitTaskMove}
