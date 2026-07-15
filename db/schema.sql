@@ -87,6 +87,8 @@ CREATE TABLE tasks (
     importance   integer,
     deadline     date,
     order_index  double precision NOT NULL DEFAULT 0,
+    -- ソフト削除。NULL は通常のタスク、非 NULL はゴミ箱（オーナーのみ閲覧・復元・完全削除）。
+    deleted_at   timestamptz,
     created_at   timestamptz      NOT NULL DEFAULT now()
 );
 

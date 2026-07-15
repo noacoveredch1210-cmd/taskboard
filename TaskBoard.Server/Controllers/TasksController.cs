@@ -53,11 +53,46 @@ namespace TaskBoard.Server.Controllers
             return NoContent();
         }
 
-        // DELETE /api/tasks/{id}
+        // DELETE /api/tasks/{id} （ゴミ箱へ移す。オーナーのみ）
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(Guid id)
         {
             var success = await _repository.DeleteAsync(id, CurrentUserId);
+            if (!success) return NotFound();
+            return NoContent();
+        }
+
+        // GET /api/tasks/trash?boardId=xxx （ゴミ箱一覧。オーナーのみ）
+        [HttpGet("trash")]
+        public async Task<IActionResult> GetTrash([FromQuery] Guid boardId)
+        {
+            var tasks = await _repository.GetTrashByBoardIdAsync(boardId, CurrentUserId);
+            return Ok(tasks);
+        }
+
+        // POST /api/tasks/{id}/restore （ゴミ箱から戻す。オーナーのみ）
+        [HttpPost("{id}/restore")]
+        public async Task<IActionResult> Restore(Guid id)
+        {
+            var success = await _repository.RestoreAsync(id, CurrentUserId);
+            if (!success) return NotFound();
+            return NoContent();
+        }
+
+        // DELETE /api/tasks/{id}/purge （ゴミ箱から完全に削除。オーナーのみ）
+        [HttpDelete("{id}/purge")]
+        public async Task<IActionResult> Purge(Guid id)
+        {
+            var success = await _repository.PurgeAsync(id, CurrentUserId);
+            if (!success) return NotFound();
+            return NoContent();
+        }
+
+        // DELETE /api/tasks/trash?boardId=xxx （ゴミ箱を空にする。オーナーのみ）
+        [HttpDelete("trash")]
+        public async Task<IActionResult> PurgeAll([FromQuery] Guid boardId)
+        {
+            var success = await _repository.PurgeAllAsync(boardId, CurrentUserId);
             if (!success) return NotFound();
             return NoContent();
         }

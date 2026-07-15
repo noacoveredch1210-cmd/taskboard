@@ -69,6 +69,7 @@ const baseBoards = () => ({
   getShareLink: vi.fn(),
   joinBoard: vi.fn(),
   leaveBoard: vi.fn(),
+  restoreTask: vi.fn(),
 });
 
 beforeEach(() => {

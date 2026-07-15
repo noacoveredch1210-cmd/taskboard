@@ -143,5 +143,73 @@ namespace TaskBoard.Server.Tests.Controllers
 
             Assert.IsType<NotFoundResult>(result);
         }
+
+        [Fact]
+        public async Task GetTrash_ScopesLookupToAuthenticatedUser()
+        {
+            var boardId = Guid.NewGuid();
+            var trash = new[] { new TaskItem { Id = Guid.NewGuid(), BoardId = boardId } };
+            _repository.GetTrashByBoardIdAsync(boardId, _userId).Returns(trash);
+
+            var result = await CreateController().GetTrash(boardId);
+
+            var ok = Assert.IsType<OkObjectResult>(result);
+            Assert.Same(trash, ok.Value);
+            await _repository.Received(1).GetTrashByBoardIdAsync(boardId, _userId);
+        }
+
+        [Fact]
+        public async Task Restore_ScopesToAuthenticatedUser()
+        {
+            var id = Guid.NewGuid();
+            _repository.RestoreAsync(id, _userId).Returns(true);
+
+            var result = await CreateController().Restore(id);
+
+            Assert.IsType<NoContentResult>(result);
+            await _repository.Received(1).RestoreAsync(id, _userId);
+        }
+
+        [Fact]
+        public async Task Restore_ReturnsNotFound_WhenNotPermitted()
+        {
+            _repository.RestoreAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(false);
+
+            var result = await CreateController().Restore(Guid.NewGuid());
+
+            Assert.IsType<NotFoundResult>(result);
+        }
+
+        [Fact]
+        public async Task Purge_ReturnsNotFound_WhenNotPermitted()
+        {
+            _repository.PurgeAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(false);
+
+            var result = await CreateController().Purge(Guid.NewGuid());
+
+            Assert.IsType<NotFoundResult>(result);
+        }
+
+        [Fact]
+        public async Task PurgeAll_ScopesToAuthenticatedUser()
+        {
+            var boardId = Guid.NewGuid();
+            _repository.PurgeAllAsync(boardId, _userId).Returns(true);
+
+            var result = await CreateController().PurgeAll(boardId);
+
+            Assert.IsType<NoContentResult>(result);
+            await _repository.Received(1).PurgeAllAsync(boardId, _userId);
+        }
+
+        [Fact]
+        public async Task PurgeAll_ReturnsNotFound_WhenNotOwner()
+        {
+            _repository.PurgeAllAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(false);
+
+            var result = await CreateController().PurgeAll(Guid.NewGuid());
+
+            Assert.IsType<NotFoundResult>(result);
+        }
     }
 }

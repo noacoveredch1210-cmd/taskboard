@@ -59,6 +59,24 @@ const renderBoard = () =>
       onDeleteTasks={vi.fn()}
       onGetShareLink={vi.fn()}
       onLeaveBoard={vi.fn()}
+      onRestoreTask={vi.fn()}
+    />,
+  );
+
+const renderRole = (role: "owner" | "member") =>
+  render(
+    <BoardPage
+      boardInfo={{ ...boardInfo, role }}
+      onSaveTask={vi.fn()}
+      onCreateCategory={vi.fn()}
+      onSetCategory={vi.fn()}
+      onDeleteCategories={vi.fn()}
+      onReorderTasks={vi.fn()}
+      onCommitTaskMove={vi.fn()}
+      onDeleteTasks={vi.fn()}
+      onGetShareLink={vi.fn()}
+      onLeaveBoard={vi.fn()}
+      onRestoreTask={vi.fn()}
     />,
   );
 
@@ -76,6 +94,18 @@ let user: ReturnType<typeof userEvent.setup>;
 
 beforeEach(() => {
   user = userEvent.setup();
+});
+
+describe("BoardPage（タスク削除はオーナーのみ）", () => {
+  it("オーナーには削除の選択ボタンが出る", () => {
+    renderRole("owner");
+    expect(screen.getByText("選択")).toBeInTheDocument();
+  });
+
+  it("メンバーには削除の選択ボタンが出ない", () => {
+    renderRole("member");
+    expect(screen.queryByText("選択")).not.toBeInTheDocument();
+  });
 });
 
 describe("BoardPage", () => {
@@ -197,6 +227,7 @@ const renderTwoCol = () => {
       onDeleteTasks={onDeleteTasks}
       onGetShareLink={vi.fn()}
       onLeaveBoard={vi.fn()}
+      onRestoreTask={vi.fn()}
     />,
   );
   return { onReorderTasks, onCommitTaskMove, onDeleteTasks };

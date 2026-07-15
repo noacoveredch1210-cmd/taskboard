@@ -24,6 +24,8 @@ type Props = {
   isLastColumn: boolean;
   tasks: TaskInfo[];
   categories: Category[];
+  /** タスク削除の可否（オーナーのみ）。false なら削除 UI を出さない。 */
+  canDelete: boolean;
   isSelectMode: boolean;
   selectedTaskIds: string[];
   onToggleSelectMode: () => void;
@@ -45,6 +47,7 @@ const Container = ({
   isLastColumn,
   tasks,
   categories,
+  canDelete,
   isSelectMode,
   selectedTaskIds,
   onToggleSelectMode,
@@ -112,7 +115,7 @@ const Container = ({
         {positionIdx === 0 && (
           <CreateTaskButton onClick={() => setOpenTaskModal(true)} />
         )}
-        {isLastColumn && (
+        {isLastColumn && canDelete && (
           <SelectButton
             isSelectMode={isSelectMode}
             onSetIsSelectMode={onToggleSelectMode}
@@ -137,7 +140,9 @@ const Container = ({
               category={categories.find((item) => item.id === task.categoryId)}
               categories={categories}
               positions={boardInfo.positions}
-              assignee={boardInfo.members?.find((m) => m.id === task.assigneeId)}
+              assignee={boardInfo.members?.find(
+                (m) => m.id === task.assigneeId,
+              )}
               members={boardInfo.members}
               isSelectMode={selectable}
               checked={selectedTaskIds.includes(task.id)}
@@ -147,7 +152,7 @@ const Container = ({
               onAdvancePosition={
                 isLastColumn ? undefined : () => onAdvancePosition(task)
               }
-              onDelete={() => onDeleteTask(task.id)}
+              onDelete={canDelete ? () => onDeleteTask(task.id) : undefined}
             />
           ))}
         </div>
@@ -164,6 +169,7 @@ const Container = ({
       {openDeleteModal && (
         <DeleteModal
           message="選択したタスクを削除しますか？"
+          irreversible={false}
           onConfirm={onDeleteSelected}
           onClose={() => setOpenDeleteModal(false)}
         />

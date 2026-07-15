@@ -23,7 +23,7 @@ const DeleteModal = ({
           <div className="text-gray-500">※この処理は元には戻せません。</div>
         )}
       </div>
-      <div className="flex justify-end gap-3">
+      <div className="flex justify-center gap-3">
         <button
           onClick={onClose}
           className="rounded border hover:bg-gray-100 w-20"

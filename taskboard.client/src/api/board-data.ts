@@ -50,6 +50,12 @@ export const loadUser = async (): Promise<UserInfo> => {
   return toUserInfo(dto);
 };
 
+/** 指定ボードのゴミ箱（削除済みタスク）を UI 型で取得する（オーナーのみ）。 */
+export const loadTrash = async (boardId: string): Promise<TaskInfo[]> => {
+  const dtos = await tasksApi.getTrash(boardId);
+  return dtos.map(toTaskInfo);
+};
+
 // ---- DTO → UI 型 マッパー ----
 
 const toUserInfo = (dto: UserDto): UserInfo => {

@@ -11,18 +11,23 @@ namespace TaskBoard.Server.Data
             "category_id AS CategoryId, assignee_id AS AssigneeId, name, comment, importance, " +
             "deadline, order_index AS OrderIndex, created_at AS CreatedAt";
 
-        /// <summary>tasks の行が、認証ユーザーの参加する board に属することを要求する条件。</summary>
+        /// <summary>tasks の行が、認証ユーザーの参加する board に属することを要求する条件（閲覧・編集用）。</summary>
         private const string OwnedByUser =
             "EXISTS (SELECT 1 FROM board_members m WHERE m.board_id = tasks.board_id AND m.user_id = @UserId)";
+
+        /// <summary>削除・復元・完全削除・ゴミ箱閲覧はオーナー限定。</summary>
+        private const string OwnedByOwner =
+            "EXISTS (SELECT 1 FROM board_members m WHERE m.board_id = tasks.board_id AND m.user_id = @UserId AND m.role = 'owner')";
 
         public TaskRepository(IDbConnection connection) : base(connection) { }
 
         public async Task<IEnumerable<TaskItem>> GetByBoardIdAsync(Guid boardId, Guid userId)
         {
+            // 通常の一覧はゴミ箱（deleted_at 非 NULL）を除く。
             var sql = $"""
             SELECT {Columns}
             FROM tasks
-            WHERE board_id = @BoardId AND {OwnedByUser}
+            WHERE board_id = @BoardId AND deleted_at IS NULL AND {OwnedByUser}
             ORDER BY order_index
             """;
             return await Connection.QueryAsync<TaskItem>(sql, new { BoardId = boardId, UserId = userId });
@@ -33,9 +38,23 @@ namespace TaskBoard.Server.Data
             var sql = $"""
             SELECT {Columns}
             FROM tasks
-            WHERE id = @Id AND {OwnedByUser}
+            WHERE id = @Id AND deleted_at IS NULL AND {OwnedByUser}
             """;
             return await Connection.QuerySingleOrDefaultAsync<TaskItem>(sql, new { Id = id, UserId = userId });
+        }
+
+        /// <summary>ゴミ箱（削除済み）のタスク一覧。オーナーのみ。</summary>
+        public async Task<IEnumerable<TaskItem>> GetTrashByBoardIdAsync(Guid boardId, Guid userId)
+        {
+            if (!await IsBoardOwnerAsync(boardId, userId)) return [];
+
+            var sql = $"""
+            SELECT {Columns}
+            FROM tasks
+            WHERE board_id = @BoardId AND deleted_at IS NOT NULL
+            ORDER BY deleted_at DESC
+            """;
+            return await Connection.QueryAsync<TaskItem>(sql, new { BoardId = boardId });
         }
 
         public async Task<bool> CreateAsync(CreateTaskRequest request, Guid userId)
@@ -85,24 +104,58 @@ namespace TaskBoard.Server.Data
             return affectedRows > 0;
         }
 
+        /// <summary>削除（ソフト削除）。オーナーのみ。ゴミ箱へ移す。</summary>
         public async Task<bool> DeleteAsync(Guid id, Guid userId)
         {
             var sql = $"""
-            DELETE FROM tasks
-            WHERE id = @Id AND {OwnedByUser}
+            UPDATE tasks SET deleted_at = now()
+            WHERE id = @Id AND deleted_at IS NULL AND {OwnedByOwner}
             """;
             var affectedRows = await Connection.ExecuteAsync(sql, new { Id = id, UserId = userId });
             return affectedRows > 0;
         }
 
-        /// <summary>task が認証ユーザーの参加する board に属していれば、その board_id を返す。</summary>
+        /// <summary>ゴミ箱から戻す。オーナーのみ。</summary>
+        public async Task<bool> RestoreAsync(Guid id, Guid userId)
+        {
+            var sql = $"""
+            UPDATE tasks SET deleted_at = NULL
+            WHERE id = @Id AND deleted_at IS NOT NULL AND {OwnedByOwner}
+            """;
+            var affectedRows = await Connection.ExecuteAsync(sql, new { Id = id, UserId = userId });
+            return affectedRows > 0;
+        }
+
+        /// <summary>ゴミ箱から完全に削除する。オーナーのみ（ゴミ箱にある行だけ）。</summary>
+        public async Task<bool> PurgeAsync(Guid id, Guid userId)
+        {
+            var sql = $"""
+            DELETE FROM tasks
+            WHERE id = @Id AND deleted_at IS NOT NULL AND {OwnedByOwner}
+            """;
+            var affectedRows = await Connection.ExecuteAsync(sql, new { Id = id, UserId = userId });
+            return affectedRows > 0;
+        }
+
+        /// <summary>ゴミ箱を空にする（board 内の削除済みタスクを全て完全削除）。オーナーのみ。</summary>
+        public async Task<bool> PurgeAllAsync(Guid boardId, Guid userId)
+        {
+            if (!await IsBoardOwnerAsync(boardId, userId)) return false;
+
+            await Connection.ExecuteAsync(
+                "DELETE FROM tasks WHERE board_id = @BoardId AND deleted_at IS NOT NULL",
+                new { BoardId = boardId });
+            return true;
+        }
+
+        /// <summary>task が認証ユーザーの参加する board に属していれば、その board_id を返す（ゴミ箱は除く）。</summary>
         private Task<Guid?> FindOwnedBoardIdAsync(Guid id, Guid userId)
         {
             const string sql = """
             SELECT t.board_id
             FROM tasks t
             JOIN board_members m ON m.board_id = t.board_id AND m.user_id = @UserId
-            WHERE t.id = @Id
+            WHERE t.id = @Id AND t.deleted_at IS NULL
             """;
             return Connection.ExecuteScalarAsync<Guid?>(sql, new { Id = id, UserId = userId });
         }

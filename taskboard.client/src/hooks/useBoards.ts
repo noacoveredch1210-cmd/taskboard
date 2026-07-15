@@ -330,6 +330,30 @@ export const useBoards = () => {
       tasksApi.remove(id).catch(handleFailure("タスクの削除に失敗しました", boards)),
     );
   };
+
+  /**
+   * ゴミ箱から復元したタスクを、対象ボードの一覧へ楽観的に戻す。
+   * ゴミ箱モーダルが持つタスク情報を受け取り、state に足しつつ API を呼ぶ。
+   */
+  const restoreTask = async (
+    boardId: string,
+    restored: TaskInfo,
+  ): Promise<boolean> => {
+    setBoards((prev) =>
+      prev.map((board) =>
+        board.id !== boardId
+          ? board
+          : { ...board, tasks: [...(board.tasks ?? []), restored] },
+      ),
+    );
+    try {
+      await tasksApi.restore(restored.id);
+      return true;
+    } catch (e) {
+      handleFailure("タスクの復元に失敗しました", boards)(e);
+      return false;
+    }
+  };
   // #endregion
 
   // #region カテゴリー（ボード単位）
@@ -449,5 +473,6 @@ export const useBoards = () => {
     getShareLink,
     joinBoard,
     leaveBoard,
+    restoreTask,
   };
 };

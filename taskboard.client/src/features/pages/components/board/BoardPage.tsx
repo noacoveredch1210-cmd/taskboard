@@ -63,6 +63,7 @@ type Props = {
   onDeleteTasks: (boardId: string, taskIds: string[]) => void;
   onGetShareLink: (boardId: string) => Promise<string>;
   onLeaveBoard: (boardId: string) => Promise<boolean>;
+  onRestoreTask: (boardId: string, task: TaskInfo) => Promise<boolean>;
 };
 
 const BoardPage = ({
@@ -76,9 +77,12 @@ const BoardPage = ({
   onDeleteTasks,
   onGetShareLink,
   onLeaveBoard,
+  onRestoreTask,
 }: Props) => {
   // カテゴリーはボードに属する。
   const categories = boardInfo.categories;
+  // タスクの削除・ゴミ箱はオーナーのみ。
+  const canDelete = boardInfo.role === "owner";
   // 子コンポーネントは board を意識しない旧シグネチャを期待するので、ここで board を束ねる。
   const createCategory = (name: string, color: string) =>
     onCreateCategory(boardInfo.id, name, color);
@@ -318,6 +322,7 @@ const BoardPage = ({
           onDeleteCategories={onDeleteCategories}
           onGetShareLink={onGetShareLink}
           onLeaveBoard={onLeaveBoard}
+          onRestoreTask={onRestoreTask}
         />
       </div>
       <div className="flex gap-5">
@@ -351,6 +356,7 @@ const BoardPage = ({
               isLastColumn={idx === boardInfo.positions.length - 1}
               tasks={grouped?.[position.id] ?? []}
               categories={categories}
+              canDelete={canDelete}
               isSelectMode={isSelectMode}
               selectedTaskIds={selectedTaskIds}
               onToggleSelectMode={toggleSelectMode}

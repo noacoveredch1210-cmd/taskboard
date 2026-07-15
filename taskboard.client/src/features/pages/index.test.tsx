@@ -51,6 +51,7 @@ const renderPages = (openingPageIndex: number | null) =>
       onGetShareLink={vi.fn()}
       onJoinBoard={vi.fn()}
       onLeaveBoard={vi.fn()}
+      onRestoreTask={vi.fn()}
     />,
   );
 

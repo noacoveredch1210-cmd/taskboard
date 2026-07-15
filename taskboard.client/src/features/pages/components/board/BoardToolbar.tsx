@@ -1,9 +1,11 @@
 import { useState } from "react";
 import CategoryModal from "./category/CategoryModal";
 import MembersModal from "./MembersModal";
+import TrashModal from "./TrashModal";
 import { useToast } from "../../../../components/toast/ToastContext";
 import type { BoardInfo } from "../../../../types/boardInfo";
 import type { Category } from "../../../../types/category";
+import type { TaskInfo } from "../../../../types/taskInfo";
 
 type Props = {
   boardInfo: BoardInfo;
@@ -16,9 +18,10 @@ type Props = {
   onDeleteCategories: (boardId: string, ids: string[]) => void;
   onGetShareLink: (boardId: string) => Promise<string>;
   onLeaveBoard: (boardId: string) => Promise<boolean>;
+  onRestoreTask: (boardId: string, task: TaskInfo) => Promise<boolean>;
 };
 
-/** ボード上部の管理ツールバー：カテゴリー管理と、オーナー向けの共有リンク。 */
+/** ボード上部の管理ツールバー：カテゴリー管理・メンバー、オーナー向けの共有リンクとゴミ箱。 */
 const BoardToolbar = ({
   boardInfo,
   onCreateCategory,
@@ -26,11 +29,15 @@ const BoardToolbar = ({
   onDeleteCategories,
   onGetShareLink,
   onLeaveBoard,
+  onRestoreTask,
 }: Props) => {
   const { showToast } = useToast();
   const [showCategories, setShowCategories] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
+  const [showTrash, setShowTrash] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
+
+  const isOwner = boardInfo.role === "owner";
 
   const handleShare = async () => {
     if (isSharing) return;
@@ -65,8 +72,19 @@ const BoardToolbar = ({
         メンバー
       </button>
 
-      {/* 共有リンクの発行はオーナーだけ */}
-      {boardInfo.role === "owner" && (
+      {/* ゴミ箱と共有リンクの発行はオーナーだけ */}
+      {isOwner && (
+        <button
+          type="button"
+          onClick={() => setShowTrash(true)}
+          className="bg-gray-200 px-4 py-1 border btn-base hover:bg-gray-300 flex items-center gap-1"
+        >
+          <span className="material-symbols-outlined">delete</span>
+          ゴミ箱
+        </button>
+      )}
+
+      {isOwner && (
         <button
           type="button"
           onClick={handleShare}
@@ -83,6 +101,14 @@ const BoardToolbar = ({
           boardInfo={boardInfo}
           onClose={() => setShowMembers(false)}
           onLeaveBoard={onLeaveBoard}
+        />
+      )}
+
+      {showTrash && (
+        <TrashModal
+          boardInfo={boardInfo}
+          onClose={() => setShowTrash(false)}
+          onRestoreTask={onRestoreTask}
         />
       )}
 

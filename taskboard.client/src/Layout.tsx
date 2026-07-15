@@ -29,6 +29,7 @@ const Layout = () => {
     getShareLink,
     joinBoard,
     leaveBoard,
+    restoreTask,
   } = useBoards();
   const userInfo = useUser();
 
@@ -124,6 +125,7 @@ const Layout = () => {
             onGetShareLink={getShareLink}
             onJoinBoard={joinBoard}
             onLeaveBoard={handleLeaveBoard}
+            onRestoreTask={restoreTask}
           />
         </div>
       </div>

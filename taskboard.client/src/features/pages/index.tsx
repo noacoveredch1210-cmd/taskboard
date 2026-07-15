@@ -37,6 +37,7 @@ type Props = {
   onGetShareLink: (boardId: string) => Promise<string>;
   onJoinBoard: (token: string) => Promise<"member" | "requested" | null>;
   onLeaveBoard: (boardId: string) => Promise<boolean>;
+  onRestoreTask: (boardId: string, task: TaskInfo) => Promise<boolean>;
 };
 
 const Pages = ({
@@ -56,6 +57,7 @@ const Pages = ({
   onGetShareLink,
   onJoinBoard,
   onLeaveBoard,
+  onRestoreTask,
 }: Props) => {
   return (
     <>
@@ -83,6 +85,7 @@ const Pages = ({
             onDeleteTasks={onDeleteTasks}
             onGetShareLink={onGetShareLink}
             onLeaveBoard={onLeaveBoard}
+            onRestoreTask={onRestoreTask}
           />
         </div>
       )}

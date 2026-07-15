@@ -111,6 +111,116 @@ namespace TaskBoard.Server.IntegrationTests.Repositories
         }
 
         [SkippableFact]
+        public async Task 削除はオーナーのみ_メンバーは削除できない()
+        {
+            RequireDocker();
+            using var connection = await Fixture.OpenConnectionAsync();
+            var world = await SeedWorldAsync(connection);
+            var boards = new BoardRepository(connection);
+            var tasks = new TaskRepository(connection);
+
+            // Stranger を OwnerBoard の「メンバー」にする。
+            var token = await boards.GetShareTokenAsync(world.OwnerBoard, Owner);
+            await boards.RequestJoinByTokenAsync(token!.Value, Stranger);
+            await boards.ApproveJoinRequestAsync(world.OwnerBoard, Owner, Stranger);
+
+            var taskId = Guid.NewGuid();
+            await tasks.CreateAsync(NewTask(taskId, world.OwnerBoard, world.OwnerPosition), Stranger);
+
+            // メンバー（Stranger）は削除できない。
+            Assert.False(await tasks.DeleteAsync(taskId, Stranger));
+            Assert.NotNull(await tasks.GetByIdAsync(taskId, Stranger));
+
+            // オーナーは削除できる。
+            Assert.True(await tasks.DeleteAsync(taskId, Owner));
+        }
+
+        [SkippableFact]
+        public async Task ソフト削除されたタスクは一覧から消えゴミ箱に入る_復元で戻る()
+        {
+            RequireDocker();
+            using var connection = await Fixture.OpenConnectionAsync();
+            var world = await SeedWorldAsync(connection);
+            var repository = new TaskRepository(connection);
+
+            var taskId = Guid.NewGuid();
+            await repository.CreateAsync(NewTask(taskId, world.OwnerBoard, world.OwnerPosition), Owner);
+
+            await repository.DeleteAsync(taskId, Owner);
+
+            // 通常の一覧からは消え、ゴミ箱に入る。
+            Assert.Empty(await repository.GetByBoardIdAsync(world.OwnerBoard, Owner));
+            var trash = (await repository.GetTrashByBoardIdAsync(world.OwnerBoard, Owner)).ToList();
+            Assert.Single(trash);
+            Assert.Equal(taskId, trash[0].Id);
+
+            // 復元すると一覧へ戻り、ゴミ箱から消える。
+            Assert.True(await repository.RestoreAsync(taskId, Owner));
+            Assert.Single(await repository.GetByBoardIdAsync(world.OwnerBoard, Owner));
+            Assert.Empty(await repository.GetTrashByBoardIdAsync(world.OwnerBoard, Owner));
+        }
+
+        [SkippableFact]
+        public async Task ゴミ箱の閲覧復元完全削除はオーナーのみ()
+        {
+            RequireDocker();
+            using var connection = await Fixture.OpenConnectionAsync();
+            var world = await SeedWorldAsync(connection);
+            var boards = new BoardRepository(connection);
+            var tasks = new TaskRepository(connection);
+
+            // Stranger を OwnerBoard のメンバーにする。
+            var token = await boards.GetShareTokenAsync(world.OwnerBoard, Owner);
+            await boards.RequestJoinByTokenAsync(token!.Value, Stranger);
+            await boards.ApproveJoinRequestAsync(world.OwnerBoard, Owner, Stranger);
+
+            var taskId = Guid.NewGuid();
+            await tasks.CreateAsync(NewTask(taskId, world.OwnerBoard, world.OwnerPosition), Owner);
+            await tasks.DeleteAsync(taskId, Owner);
+
+            // メンバーはゴミ箱を見られず、復元も完全削除もできない。
+            Assert.Empty(await tasks.GetTrashByBoardIdAsync(world.OwnerBoard, Stranger));
+            Assert.False(await tasks.RestoreAsync(taskId, Stranger));
+            Assert.False(await tasks.PurgeAsync(taskId, Stranger));
+
+            // オーナーは完全削除できる（ゴミ箱からも消える）。
+            Assert.True(await tasks.PurgeAsync(taskId, Owner));
+            Assert.Empty(await tasks.GetTrashByBoardIdAsync(world.OwnerBoard, Owner));
+        }
+
+        [SkippableFact]
+        public async Task ゴミ箱を空にできるのはオーナーのみ()
+        {
+            RequireDocker();
+            using var connection = await Fixture.OpenConnectionAsync();
+            var world = await SeedWorldAsync(connection);
+            var boards = new BoardRepository(connection);
+            var tasks = new TaskRepository(connection);
+
+            // Stranger を OwnerBoard のメンバーにする。
+            var token = await boards.GetShareTokenAsync(world.OwnerBoard, Owner);
+            await boards.RequestJoinByTokenAsync(token!.Value, Stranger);
+            await boards.ApproveJoinRequestAsync(world.OwnerBoard, Owner, Stranger);
+
+            // 2 件作って削除（ゴミ箱に 2 件）。
+            foreach (var _ in new[] { 0, 1 })
+            {
+                var id = Guid.NewGuid();
+                await tasks.CreateAsync(NewTask(id, world.OwnerBoard, world.OwnerPosition), Owner);
+                await tasks.DeleteAsync(id, Owner);
+            }
+            Assert.Equal(2, (await tasks.GetTrashByBoardIdAsync(world.OwnerBoard, Owner)).Count());
+
+            // メンバーは空にできない。
+            Assert.False(await tasks.PurgeAllAsync(world.OwnerBoard, Stranger));
+            Assert.Equal(2, (await tasks.GetTrashByBoardIdAsync(world.OwnerBoard, Owner)).Count());
+
+            // オーナーは空にできる。
+            Assert.True(await tasks.PurgeAllAsync(world.OwnerBoard, Owner));
+            Assert.Empty(await tasks.GetTrashByBoardIdAsync(world.OwnerBoard, Owner));
+        }
+
+        [SkippableFact]
         public async Task deadline_は日付として往復する()
         {
             RequireDocker();

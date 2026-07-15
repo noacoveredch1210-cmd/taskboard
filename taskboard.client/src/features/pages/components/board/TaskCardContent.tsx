@@ -71,75 +71,75 @@ const TaskCardContent = ({
           className={`${importanceColor} w-3 shrink-0 self-stretch border-r rounded-l`}
         ></div>
         <div className="p-2 flex-1 min-w-0 items-start flex flex-col gap-2">
-        <div
-          className="inline-block px-2 rounded text-sm"
-          style={{
-            backgroundColor: bgColor,
-            color: category?.color ? getTextColor(bgColor) : "#000000",
-          }}
-        >
-          {category?.name ?? "未設定"}
-        </div>
-        <div className="w-full line-clamp-2 wrap-break-word text-left">
-          {task.name}
-        </div>
-        <div className="flex items-center gap-2 text-gray-400 text-sm">
-          <span>
-            {task.deadline?.toLocaleDateString("ja-JP", {
-              year: "numeric",
-              month: "numeric",
-              day: "2-digit",
-            }) ?? "期限未設定"}
-          </span>
-          {assignee && <Avatar name={assignee.name} size={20} />}
-        </div>
-        {/* メニューボタンとポジション移動ボタン（absolute） */}
-        <div ref={menuRef} className="absolute top-1 right-1">
           <div
-            role="button"
-            onClick={(e) => {
-              // 外側ボタン(タスク編集モーダル)を開かないように伝播を止める
-              e.stopPropagation();
-              if (onDelete) setOpenMenu((prev) => !prev);
+            className="inline-block px-2 rounded text-sm"
+            style={{
+              backgroundColor: bgColor,
+              color: category?.color ? getTextColor(bgColor) : "#000000",
             }}
-            className={`hover:text-primary px-1 pt-1 rounded ${openMenu ? "text-primary" : ""}`}
           >
-            <span className="material-symbols-outlined">more_horiz</span>
+            {category?.name ?? "未設定"}
           </div>
-          {openMenu && onDelete && (
-            <div className="absolute right-0 top-7 z-20 bg-white border rounded shadow text-sm">
-              <div
-                role="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setOpenModal(true);
-                  setOpenMenu(false);
-                }}
-                className="flex items-center gap-1 rounded px-3 py-1 text-red-600 hover:bg-gray-100 whitespace-nowrap"
-              >
-                <span className="material-symbols-outlined text-sm!">
-                  delete
-                </span>
-                削除
+          <div className="w-full line-clamp-2 wrap-break-word text-left">
+            {task.name}
+          </div>
+          <div className="flex items-center gap-2 text-gray-400 text-sm">
+            <span>
+              {task.deadline?.toLocaleDateString("ja-JP", {
+                year: "numeric",
+                month: "numeric",
+                day: "2-digit",
+              }) ?? "期限未設定"}
+            </span>
+            {assignee && <Avatar name={assignee.name} size={20} />}
+          </div>
+          {/* メニューボタンとポジション移動ボタン（absolute） */}
+          <div ref={menuRef} className="absolute top-1 right-1">
+            <div
+              role="button"
+              onClick={(e) => {
+                // 外側ボタン(タスク編集モーダル)を開かないように伝播を止める
+                e.stopPropagation();
+                if (onDelete) setOpenMenu((prev) => !prev);
+              }}
+              className={`hover:text-primary px-1 pt-1 rounded ${openMenu ? "text-primary" : ""}`}
+            >
+              <span className="material-symbols-outlined">more_horiz</span>
+            </div>
+            {openMenu && onDelete && (
+              <div className="absolute right-0 top-7 z-20 bg-white border rounded shadow text-sm">
+                <div
+                  role="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOpenModal(true);
+                    setOpenMenu(false);
+                  }}
+                  className="flex items-center gap-1 rounded px-3 py-1 text-red-600 hover:bg-gray-100 whitespace-nowrap"
+                >
+                  <span className="material-symbols-outlined text-sm!">
+                    delete
+                  </span>
+                  削除
+                </div>
               </div>
+            )}
+          </div>
+          {onAdvancePosition && (
+            <div
+              role="button"
+              onClick={(e) => {
+                // 外側ボタン(タスク編集モーダル)を開かないように伝播を止める
+                e.stopPropagation();
+                onAdvancePosition?.();
+              }}
+              className="hidden group-hover:block absolute bottom-1 right-1 rounded bg-primary-button hover:bg-primary-button-hover items-center px-2 text-sm"
+            >
+              <span className="material-symbols-outlined text-sm!">
+                arrow_forward
+              </span>
             </div>
           )}
-        </div>
-        {onAdvancePosition && (
-          <div
-            role="button"
-            onClick={(e) => {
-              // 外側ボタン(タスク編集モーダル)を開かないように伝播を止める
-              e.stopPropagation();
-              onAdvancePosition?.();
-            }}
-            className="hidden group-hover:block absolute bottom-1 right-1 rounded bg-primary-button hover:bg-primary-button-hover items-center px-2 text-sm"
-          >
-            <span className="material-symbols-outlined text-sm!">
-              arrow_forward
-            </span>
-          </div>
-        )}
         </div>
       </div>
       {openModal && onDelete && (
@@ -147,6 +147,7 @@ const TaskCardContent = ({
         <div onClick={(e) => e.stopPropagation()}>
           <DeleteModal
             message="このタスクを削除しますか？"
+            irreversible={false}
             onConfirm={() => onDelete()}
             onClose={() => setOpenModal(false)}
           />
