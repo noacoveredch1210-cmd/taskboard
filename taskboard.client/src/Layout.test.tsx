@@ -68,6 +68,7 @@ const baseBoards = () => ({
   deleteCategories: vi.fn(),
   getShareLink: vi.fn(),
   joinBoard: vi.fn(),
+  leaveBoard: vi.fn(),
 });
 
 beforeEach(() => {

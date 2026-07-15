@@ -58,6 +58,7 @@ const renderBoard = () =>
       onCommitTaskMove={vi.fn()}
       onDeleteTasks={vi.fn()}
       onGetShareLink={vi.fn()}
+      onLeaveBoard={vi.fn()}
     />,
   );
 
@@ -195,6 +196,7 @@ const renderTwoCol = () => {
       onCommitTaskMove={onCommitTaskMove}
       onDeleteTasks={onDeleteTasks}
       onGetShareLink={vi.fn()}
+      onLeaveBoard={vi.fn()}
     />,
   );
   return { onReorderTasks, onCommitTaskMove, onDeleteTasks };

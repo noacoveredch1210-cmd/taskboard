@@ -416,6 +416,20 @@ export const useBoards = () => {
       return null;
     }
   };
+
+  /** このボードから退出する。成功したら一覧から取り除く。オーナーは退出できない。 */
+  const leaveBoard = async (boardId: string): Promise<boolean> => {
+    try {
+      await boardsApi.leave(boardId);
+      setBoards((prev) => prev.filter((b) => b.id !== boardId));
+      showToast("ボードから退出しました。");
+      return true;
+    } catch (e) {
+      reportError("ボードからの退出に失敗しました")(e);
+      showToast("ボードから退出できませんでした。");
+      return false;
+    }
+  };
   // #endregion
 
   return {
@@ -434,5 +448,6 @@ export const useBoards = () => {
     deleteCategories,
     getShareLink,
     joinBoard,
+    leaveBoard,
   };
 };

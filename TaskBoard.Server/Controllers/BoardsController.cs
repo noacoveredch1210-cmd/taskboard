@@ -133,6 +133,16 @@ namespace TaskBoard.Server.Controllers
             return NoContent();
         }
 
+        // POST /api/boards/{id}/leave （自分がこのボードから退出する）
+        // オーナーは退出できない（ボードを削除するか、他者にオーナーを譲ってから抜ける）。
+        [HttpPost("{id}/leave")]
+        public async Task<IActionResult> Leave(Guid id)
+        {
+            var success = await _repository.RemoveMemberAsync(id, CurrentUserId, CurrentUserId);
+            if (!success) return NotFound();
+            return NoContent();
+        }
+
         // PUT /api/boards/{id}/members/{userId}
         // メンバーの役割を変更する（オーナーのみ。最後のオーナーは降格不可）。
         [HttpPut("{id}/members/{userId}")]

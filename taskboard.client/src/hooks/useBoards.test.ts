@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   updateCategory: vi.fn(),
   removeCategory: vi.fn(),
   joinBoard: vi.fn(),
+  leaveBoard: vi.fn(),
   getShareToken: vi.fn(),
   reportError: vi.fn(),
   showToast: vi.fn(),
@@ -41,6 +42,7 @@ vi.mock("../api/boards", () => ({
     update: mocks.updateBoard,
     remove: mocks.removeBoard,
     join: mocks.joinBoard,
+    leave: mocks.leaveBoard,
     getShareToken: mocks.getShareToken,
   },
 }));
@@ -533,6 +535,40 @@ describe("共有", () => {
 
     expect(mocks.getShareToken).toHaveBeenCalledWith("board-1");
     expect(link).toBe(`${window.location.origin}/?join=tok-abc`);
+  });
+
+  it("leaveBoard は成功したら一覧からそのボードを取り除く", async () => {
+    mocks.leaveBoard.mockResolvedValue(undefined);
+    const { result } = await renderLoaded([
+      board({ id: "board-1" }),
+      board({ id: "board-2" }),
+    ]);
+
+    let ok = false;
+    await act(async () => {
+      ok = await result.current.leaveBoard("board-1");
+    });
+
+    expect(ok).toBe(true);
+    expect(mocks.leaveBoard).toHaveBeenCalledWith("board-1");
+    expect(result.current.boards.map((b) => b.id)).toEqual(["board-2"]);
+    expect(mocks.showToast).toHaveBeenCalledWith("ボードから退出しました。");
+  });
+
+  it("leaveBoard は失敗したら false を返し、一覧を変えない", async () => {
+    mocks.leaveBoard.mockRejectedValue(new Error("boom"));
+    const { result } = await renderLoaded([board({ id: "board-1" })]);
+
+    let ok = true;
+    await act(async () => {
+      ok = await result.current.leaveBoard("board-1");
+    });
+
+    expect(ok).toBe(false);
+    expect(result.current.boards.map((b) => b.id)).toEqual(["board-1"]);
+    expect(mocks.showToast).toHaveBeenCalledWith(
+      "ボードから退出できませんでした。",
+    );
   });
 });
 

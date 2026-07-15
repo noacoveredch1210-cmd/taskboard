@@ -62,6 +62,7 @@ type Props = {
   ) => void;
   onDeleteTasks: (boardId: string, taskIds: string[]) => void;
   onGetShareLink: (boardId: string) => Promise<string>;
+  onLeaveBoard: (boardId: string) => Promise<boolean>;
 };
 
 const BoardPage = ({
@@ -74,6 +75,7 @@ const BoardPage = ({
   onCommitTaskMove,
   onDeleteTasks,
   onGetShareLink,
+  onLeaveBoard,
 }: Props) => {
   // カテゴリーはボードに属する。
   const categories = boardInfo.categories;
@@ -315,6 +317,7 @@ const BoardPage = ({
           onSetCategory={onSetCategory}
           onDeleteCategories={onDeleteCategories}
           onGetShareLink={onGetShareLink}
+          onLeaveBoard={onLeaveBoard}
         />
       </div>
       <div className="flex gap-5">

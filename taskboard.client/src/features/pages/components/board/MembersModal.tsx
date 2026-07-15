@@ -10,13 +10,15 @@ import type { BoardMemberDto } from "../../../../api/types";
 type Props = {
   boardInfo: BoardInfo;
   onClose: () => void;
+  onLeaveBoard: (boardId: string) => Promise<boolean>;
 };
 
 /**
  * ボードのメンバー一覧。
  * オーナーは参加リクエストの承認/却下、権限の付与/降格、メンバーの除外ができる。
+ * メンバーは自分でこのボードから退出できる。
  */
-const MembersModal = ({ boardInfo, onClose }: Props) => {
+const MembersModal = ({ boardInfo, onClose, onLeaveBoard }: Props) => {
   const { user } = useAuth();
   const { showToast } = useToast();
   const [members, setMembers] = useState<BoardMemberDto[]>([]);
@@ -27,6 +29,20 @@ const MembersModal = ({ boardInfo, onClose }: Props) => {
   const [pendingRemove, setPendingRemove] = useState<BoardMemberDto | null>(
     null,
   );
+  // 自分の退出の確認中か
+  const [confirmingLeave, setConfirmingLeave] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
+
+  const handleLeave = async () => {
+    if (isLeaving) return;
+    setIsLeaving(true);
+    // 成功すると Layout がホームへ遷移＆この board を state から除くので、
+    // モーダルは閉じる。失敗時は onLeaveBoard 側がトーストを出す。
+    const ok = await onLeaveBoard(boardInfo.id);
+    setIsLeaving(false);
+    if (ok) onClose();
+    else setConfirmingLeave(false);
+  };
 
   const isOwner = boardInfo.role === "owner";
   const myId = user?.id;
@@ -239,6 +255,44 @@ const MembersModal = ({ boardInfo, onClose }: Props) => {
               })}
             </ul>
           )}
+
+          {/* メンバー（非オーナー）は自分でこのボードから退出できる */}
+          {!isOwner &&
+            (confirmingLeave ? (
+              <div className="mt-2 flex flex-col gap-3 border-t pt-4">
+                <p className="text-sm text-gray-600">
+                  このボードから退出しますか？
+                </p>
+                <div className="flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingLeave(false)}
+                    disabled={isLeaving}
+                    className="rounded border hover:bg-gray-100 px-4 py-1 disabled:opacity-50"
+                  >
+                    キャンセル
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleLeave}
+                    disabled={isLeaving}
+                    className="rounded bg-red-600 text-white hover:bg-red-700 px-4 py-1 disabled:opacity-50"
+                  >
+                    {isLeaving ? "退出中…" : "退出する"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-2 border-t pt-4 text-right">
+                <button
+                  type="button"
+                  onClick={() => setConfirmingLeave(true)}
+                  className="text-sm text-red-600 underline hover:text-red-700"
+                >
+                  このボードから退出する
+                </button>
+              </div>
+            ))}
         </>
       )}
     </ModalBase>

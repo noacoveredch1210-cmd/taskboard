@@ -27,6 +27,7 @@ const Layout = () => {
     deleteCategories,
     getShareLink,
     joinBoard,
+    leaveBoard,
   } = useBoards();
   const userInfo = useUser();
 
@@ -48,6 +49,13 @@ const Layout = () => {
     window.history.replaceState(null, "", window.location.pathname);
     joinBoard(token);
   }, [loaded, joinBoard]);
+
+  // 退出したら、そのボードを開いていたのでホーム画面へ戻す（インデックスがずれるため）。
+  const handleLeaveBoard = async (boardId: string) => {
+    const ok = await leaveBoard(boardId);
+    if (ok) setOpeningPageIndex(null);
+    return ok;
+  };
 
   // AIウィンドウを開くときはサイドバーを閉じる
   const toggleAIWindow = () => {
@@ -105,6 +113,7 @@ const Layout = () => {
             onDeleteTasks={deleteTasks}
             onGetShareLink={getShareLink}
             onJoinBoard={joinBoard}
+            onLeaveBoard={handleLeaveBoard}
           />
         </div>
       </div>

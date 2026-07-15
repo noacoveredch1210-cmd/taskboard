@@ -252,6 +252,30 @@ namespace TaskBoard.Server.Tests.Controllers
         }
 
         [Fact]
+        public async Task Leave_RemovesSelfFromBoard()
+        {
+            var boardId = Guid.NewGuid();
+            _repository.RemoveMemberAsync(boardId, _userId, _userId).Returns(true);
+
+            var result = await CreateController().Leave(boardId);
+
+            Assert.IsType<NoContentResult>(result);
+            // 退出は「自分が自分を外す」呼び出し。
+            await _repository.Received(1).RemoveMemberAsync(boardId, _userId, _userId);
+        }
+
+        [Fact]
+        public async Task Leave_ReturnsNotFound_WhenNotAllowed()
+        {
+            // オーナーは退出不可（repo が false を返す）。
+            _repository.RemoveMemberAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(false);
+
+            var result = await CreateController().Leave(Guid.NewGuid());
+
+            Assert.IsType<NotFoundResult>(result);
+        }
+
+        [Fact]
         public async Task RemoveMember_ReturnsNotFound_WhenNotPermitted()
         {
             _repository.RemoveMemberAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(false);

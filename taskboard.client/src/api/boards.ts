@@ -49,4 +49,7 @@ export const boardsApi = {
   /** メンバーの役割を変える（オーナーのみ）。 */
   setMemberRole: (boardId: string, userId: string, role: "owner" | "member") =>
     api.put<void>(`/boards/${boardId}/members/${userId}`, { role }),
+
+  /** 自分がこのボードから退出する（オーナーは不可）。 */
+  leave: (boardId: string) => api.post<void>(`/boards/${boardId}/leave`),
 };

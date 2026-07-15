@@ -16,6 +16,7 @@ type Props = {
   ) => void;
   onDeleteCategories: (boardId: string, ids: string[]) => void;
   onGetShareLink: (boardId: string) => Promise<string>;
+  onLeaveBoard: (boardId: string) => Promise<boolean>;
 };
 
 /** ボード上部の管理ツールバー：カテゴリー管理と、オーナー向けの共有リンク。 */
@@ -25,6 +26,7 @@ const BoardToolbar = ({
   onSetCategory,
   onDeleteCategories,
   onGetShareLink,
+  onLeaveBoard,
 }: Props) => {
   const { showToast } = useToast();
   const [showCategories, setShowCategories] = useState(false);
@@ -81,6 +83,7 @@ const BoardToolbar = ({
         <MembersModal
           boardInfo={boardInfo}
           onClose={() => setShowMembers(false)}
+          onLeaveBoard={onLeaveBoard}
         />
       )}
 
