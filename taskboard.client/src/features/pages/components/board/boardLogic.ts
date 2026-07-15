@@ -6,14 +6,57 @@ import type { TaskInfo } from "../../../../types/taskInfo";
 // コンテナ(ドロップ領域)のid。タスクid(UUID)と区別するため接頭辞を付ける
 export const COLUMN_PREFIX = "col-";
 
-/** 位置比較に使う矩形（top と height だけ分かればよい） */
-export type DragRect = { top: number; height: number };
+/**
+ * 位置比較に使う矩形。top/height は必須、left/width は任意。
+ * コンテナが複数列(グリッド)に折り返ることがあるため、横方向の情報が
+ * あれば同じ行内での左右判定にも使う（無ければ縦方向だけで判定する）。
+ */
+export type DragRect = {
+  top: number;
+  height: number;
+  left?: number;
+  width?: number;
+};
 
 /** ドロップ解決の結果 */
 export type Drop = {
   destPosId: string;
   overTaskId: string | null;
   placeAfter: boolean;
+};
+
+/** 2つの矩形が縦方向に重なっているか(=グリッドの同じ行にあるとみなせるか) */
+const overlapsVertically = (a: DragRect, b: DragRect): boolean =>
+  a.top < b.top + b.height && b.top < a.top + a.height;
+
+/**
+ * ドラッグ中の矩形が対象カードの「後ろ半分」にあるかを判定する。
+ * 左右(left/width)の情報が両方そろっていて、かつ縦方向に重なっている
+ * (=複数列グリッドで同じ行にある)ときは横方向の中心で判定し、
+ * それ以外は縦方向の中心で判定する。
+ */
+const computePlaceAfter = (
+  activeRect: DragRect | null,
+  overRect: DragRect | null,
+): boolean => {
+  if (!activeRect || !overRect) return false;
+
+  const sameRow =
+    activeRect.left !== undefined &&
+    activeRect.width !== undefined &&
+    overRect.left !== undefined &&
+    overRect.width !== undefined &&
+    overlapsVertically(activeRect, overRect);
+
+  if (sameRow) {
+    const activeCenterX = activeRect.left! + activeRect.width! / 2;
+    const overCenterX = overRect.left! + overRect.width! / 2;
+    return activeCenterX > overCenterX;
+  }
+
+  const activeCenterY = activeRect.top + activeRect.height / 2;
+  const overCenterY = overRect.top + overRect.height / 2;
+  return activeCenterY > overCenterY;
 };
 
 /**
@@ -43,11 +86,11 @@ export const resolveDrop = (
   const overTask = tasks.find((t) => t.id === overTaskId);
   if (!overTask) return null;
 
-  // ポインタ(ドラッグ中の中心)がカード下半分なら、そのカードの後ろに入れる
-  const placeAfter =
-    !!activeRect &&
-    !!overRect &&
-    activeRect.top + activeRect.height / 2 > overRect.top + overRect.height / 2;
+  // ポインタ(ドラッグ中の中心)がカードの後ろ半分なら、そのカードの後ろに入れる。
+  // コンテナが複数列に折り返っている場合、縦方向だけでは同じ行内の左右が
+  // 判定できない（列が variable width なタスクカードグリッドのため）。
+  // 左右の矩形情報があり、かつ縦方向に重なっている(=同じ行)ときは横方向で判定する。
+  const placeAfter = computePlaceAfter(activeRect, overRect);
 
   return { destPosId: overTask.positionId, overTaskId, placeAfter };
 };

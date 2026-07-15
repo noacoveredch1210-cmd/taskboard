@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
+import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
 import Task from "./Task";
 import CreateTaskButton from "./CreateTaskButton";
 
@@ -37,7 +34,7 @@ type Props = {
   onSaveTask: (boardId: string, task: TaskInfo) => void;
   onCreateCategory: (name: string, color: string) => void;
   onAdvancePosition: (task: TaskInfo) => void;
-  onResizeWidth: (width: number) => void;
+  onResizeWidth: (positionId: string, width: number) => void;
 };
 
 const Container = ({
@@ -70,6 +67,9 @@ const Container = ({
   const [openTaskModal, setOpenTaskModal] = useState(false);
 
   // #region 右端ドラッグでの幅リサイズ
+  // このコンテナが担当する position の id（幅の保存キー）
+  const positionId = boardInfo.positions[positionIdx]?.id;
+
   const isResizingRef = useRef(false);
   const startXRef = useRef(0);
   const startWidthRef = useRef(0);
@@ -85,10 +85,10 @@ const Container = ({
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizingRef.current) return;
+      if (!isResizingRef.current || !positionId) return;
       const delta = e.clientX - startXRef.current;
       const next = Math.min(Math.max(startWidthRef.current + delta, 200), 600);
-      onResizeWidth(next);
+      onResizeWidth(positionId, next);
     };
     const handleMouseUp = () => {
       isResizingRef.current = false;
@@ -100,7 +100,10 @@ const Container = ({
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [onResizeWidth]);
+    // onResizeWidth は BoardPage 側で useCallback により安定した参照になっている前提。
+    // ドラッグ中(dragOver)の再レンダリングのたびにリスナーを張り直さないため、
+    // 依存配列を絞っている。
+  }, [onResizeWidth, positionId]);
   // #endregion
 
   // #region 最後のコンテナ、選択関係
@@ -169,7 +172,7 @@ const Container = ({
       </div>
       <SortableContext
         items={tasks.map((task) => task.id)}
-        strategy={verticalListSortingStrategy}
+        strategy={rectSortingStrategy}
       >
         {/* min-h-0 が無いと flex アイテムは内容の高さを下回れず、コンテナが伸びてしまう */}
         <div
@@ -204,6 +207,7 @@ const Container = ({
       </SortableContext>
       {/* 右端のドラッグハンドル */}
       <div
+        data-testid="column-resize-handle"
         onMouseDown={handleResizeStart}
         className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-primary transition-colors"
       />

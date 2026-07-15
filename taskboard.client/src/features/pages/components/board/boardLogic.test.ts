@@ -67,6 +67,51 @@ describe("resolveDrop", () => {
     const drop = resolveDrop("b", { top: 100, height: 20 }, null, tasks);
     expect(drop?.placeAfter).toBe(false);
   });
+
+  // コンテナが複数列のグリッドに折り返る場合、同じ行内のカードは top がほぼ同じになる。
+  // left/width がある時はそちらで前後を判定する（無ければ縦方向のみで判定する既存の挙動を維持）。
+  describe("複数列グリッド（同じ行内の左右判定）", () => {
+    it("同じ行で対象より右にあれば後ろに挿入（placeAfter=true）", () => {
+      const drop = resolveDrop(
+        "b",
+        { top: 100, height: 20, left: 0, width: 140 }, // 中心x=70
+        { top: 100, height: 20, left: 200, width: 140 }, // 中心x=270 > 70
+        tasks,
+      );
+      expect(drop?.placeAfter).toBe(true);
+    });
+
+    it("同じ行で対象より左にあれば前に挿入（placeAfter=false）", () => {
+      const drop = resolveDrop(
+        "b",
+        { top: 100, height: 20, left: 200, width: 140 }, // 中心x=270
+        { top: 100, height: 20, left: 0, width: 140 }, // 中心x=70 < 270
+        tasks,
+      );
+      expect(drop?.placeAfter).toBe(false);
+    });
+
+    it("行が違えば left/width があっても縦方向で判定する", () => {
+      // active は over より下の行(top大)にあるが、横位置は over よりずっと左
+      const drop = resolveDrop(
+        "b",
+        { top: 100, height: 20, left: 400, width: 140 }, // 中心y=110
+        { top: 300, height: 20, left: 0, width: 140 }, // 中心y=310 > 110 → 後ろ
+        tasks,
+      );
+      expect(drop?.placeAfter).toBe(true);
+    });
+
+    it("片方にしか left/width が無ければ縦方向のみで判定する（クラッシュしない）", () => {
+      const drop = resolveDrop(
+        "b",
+        { top: 100, height: 20, left: 0, width: 140 }, // 中心y=110
+        { top: 0, height: 20 }, // 中心y=10 < 110 → 前
+        tasks,
+      );
+      expect(drop?.placeAfter).toBe(false);
+    });
+  });
 });
 
 describe("buildColumns / flattenColumns", () => {

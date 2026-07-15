@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -94,9 +94,11 @@ const BoardPage = ({
   // 各カラムの幅(px)。未設定のカラムはデフォルト幅(240px)を使う
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
 
-  const handleResizeColumn = (positionId: string, width: number) => {
+  // ドラッグ中(dragOver)のたびに BoardPage が再レンダリングされるため、
+  // 参照を安定させて Container 側の resize リスナーが毎回張り直されないようにする。
+  const handleResizeColumn = useCallback((positionId: string, width: number) => {
     setColumnWidths((prev) => ({ ...prev, [positionId]: width }));
-  };
+  }, []);
 
   // #region 最後のコンテナのタスク選択・削除
   const [isSelectMode, setIsSelectMode] = useState(false);
@@ -375,7 +377,7 @@ const BoardPage = ({
               onSaveTask={onSaveTask}
               onCreateCategory={createCategory}
               onAdvancePosition={handleAdvancePosition}
-              onResizeWidth={(width) => handleResizeColumn(position.id, width)}
+              onResizeWidth={handleResizeColumn}
             />
           ))}
         </div>
