@@ -1,7 +1,6 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import SelectButton from "../button/SelectButton";
 import FooterMenu from "../FooterMenu";
-import CreateButton from "./CreateButton";
 
 type Identifiable = { id: string };
 
@@ -76,53 +75,54 @@ const View = <T extends Identifiable>({
   };
 
   return (
-    <div
-      ref={rootRef}
-      className="border-2 w-full h-70 relative flex flex-col min-w-150"
-    >
-      <div className="flex justify-between border-b-2 px-2 py-1 bg-primary-light">
-        <span>{title}</span>
-        <SelectButton
-          isSelectMode={isSelectMode}
-          onSetIsSelectMode={toggleSelectMode}
-        />
+    <div className="flex flex-col gap-2">
+      <div
+        ref={rootRef}
+        className="border-2 w-full min-h-100 max-h-100 overflow-x-auto relative flex flex-col min-w-150"
+      >
+        <div className="flex justify-between border-b-2 px-2 py-1 bg-primary-light">
+          <span>{title}</span>
+          <SelectButton
+            isSelectMode={isSelectMode}
+            onSetIsSelectMode={toggleSelectMode}
+          />
+        </div>
+        <div className="p-3 flex flex-col gap-2 flex-1 overflow-y-auto min-h-0">
+          {items.map((item) => (
+            <Fragment key={item.id}>
+              {renderItem(item, {
+                isSelectMode,
+                checked: selectedIds.includes(item.id),
+                onToggleSelect: toggleSelect,
+              })}
+            </Fragment>
+          ))}
+        </div>
+        {isSelectMode ? (
+          <FooterMenu
+            selectLength={selectedIds.length}
+            onDelete={() => setOpenModal("confirm")}
+          />
+        ) : (
+          <>
+            {items.length === 0 && emptyHint && (
+              <button
+                type="button"
+                onClick={() => setOpenModal("create")}
+                className="absolute bottom-2 right-12 h-8 flex items-center gap-1 whitespace-nowrap text-sm font-medium text-primary animate-bounce cursor-pointer"
+              >
+                <span>{emptyHint}</span>
+                <span className="material-symbols-outlined text-lg!">
+                  arrow_forward
+                </span>
+              </button>
+            )}
+          </>
+        )}
+        {openModal === "create" && renderCreateModal(() => setOpenModal(null))}
+        {openModal === "confirm" &&
+          renderConfirmModal(handleDelete, () => setOpenModal(null))}
       </div>
-      <div className="p-3 flex flex-col gap-2 flex-1 overflow-y-auto min-h-0">
-        {items.map((item) => (
-          <Fragment key={item.id}>
-            {renderItem(item, {
-              isSelectMode,
-              checked: selectedIds.includes(item.id),
-              onToggleSelect: toggleSelect,
-            })}
-          </Fragment>
-        ))}
-      </div>
-      {isSelectMode ? (
-        <FooterMenu
-          selectLength={selectedIds.length}
-          onDelete={() => setOpenModal("confirm")}
-        />
-      ) : (
-        <>
-          {items.length === 0 && emptyHint && (
-            <button
-              type="button"
-              onClick={() => setOpenModal("create")}
-              className="absolute bottom-2 right-12 h-8 flex items-center gap-1 whitespace-nowrap text-sm font-medium text-primary animate-bounce cursor-pointer"
-            >
-              <span>{emptyHint}</span>
-              <span className="material-symbols-outlined text-lg!">
-                arrow_forward
-              </span>
-            </button>
-          )}
-          <CreateButton onOpenModal={() => setOpenModal("create")} />
-        </>
-      )}
-      {openModal === "create" && renderCreateModal(() => setOpenModal(null))}
-      {openModal === "confirm" &&
-        renderConfirmModal(handleDelete, () => setOpenModal(null))}
     </div>
   );
 };

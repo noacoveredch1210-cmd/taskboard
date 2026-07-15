@@ -5,7 +5,14 @@ import BoardView from "./BoardView";
 import type { BoardInfo } from "../../../../../types/boardInfo";
 
 const boards: BoardInfo[] = [
-  { id: "b1", shortName: "AA", title: "ボードA", role: "owner", positions: [], categories: [] },
+  {
+    id: "b1",
+    shortName: "AA",
+    title: "ボードA",
+    role: "owner",
+    positions: [],
+    categories: [],
+  },
 ];
 
 const renderView = (over = {}) => {
@@ -34,7 +41,8 @@ describe("BoardView（＝汎用 View の選択・削除・作成フロー）", (
     expect(screen.getByText("ボードA")).toBeInTheDocument();
   });
 
-  it("選択モードでチェックして削除すると onDeleteBoards を呼ぶ", async () => {    const { onDeleteBoards } = renderView() as {
+  it("選択モードでチェックして削除すると onDeleteBoards を呼ぶ", async () => {
+    const { onDeleteBoards } = renderView() as {
       onDeleteBoards: ReturnType<typeof vi.fn>;
     };
     await user.click(screen.getByText("選択")); // 選択モードへ
@@ -49,12 +57,8 @@ describe("BoardView（＝汎用 View の選択・削除・作成フロー）", (
     expect(onDeleteBoards).toHaveBeenCalledWith(["b1"]);
   });
 
-  it("追加ボタンで board 追加モーダルを開く", async () => {    renderView();
-    await user.click(screen.getByText("add").closest("button")!);
-    expect(screen.getByText("board 追加")).toBeInTheDocument();
-  });
-
-  it("カードをクリックすると board 編集モーダルを開く", async () => {    renderView();
+  it("カードをクリックすると board 編集モーダルを開く", async () => {
+    renderView();
     await user.click(screen.getByText("ボードA").closest("button")!);
     expect(screen.getByText("board 編集")).toBeInTheDocument();
   });

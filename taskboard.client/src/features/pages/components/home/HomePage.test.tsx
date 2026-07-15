@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import type { BoardInfo } from "../../../../types/boardInfo";
 import type { UserInfo } from "../../../../types/userInfo";
+import userEvent from "@testing-library/user-event";
 
 vi.mock("./LogoutButton", () => ({ default: () => <div>ログアウト</div> }));
 vi.mock("./DeleteAccountButton", () => ({
@@ -41,6 +42,13 @@ const renderHome = () =>
     />,
   );
 
+// 各テストごとに新しい user を用意し、入力状態がテスト間で漏れないようにする
+let user: ReturnType<typeof userEvent.setup>;
+
+beforeEach(() => {
+  user = userEvent.setup();
+});
+
 describe("HomePage", () => {
   it("ユーザー情報を表示する", () => {
     renderHome();
@@ -65,5 +73,11 @@ describe("HomePage", () => {
     expect(screen.getByText("共有リンクで参加")).toBeInTheDocument();
     expect(screen.getByText("ログアウト")).toBeInTheDocument();
     expect(screen.getByText("退会する")).toBeInTheDocument();
+  });
+
+  it("追加ボタンで board 追加モーダルを開く", async () => {
+    renderHome();
+    await user.click(screen.getByText("ボードの追加").closest("button")!);
+    expect(screen.getByText("board 追加")).toBeInTheDocument();
   });
 });

@@ -27,7 +27,7 @@ beforeEach(() => {
 const openModal = async () => {
   const user = userEvent.setup();
   render(<DeleteAccountButton />);
-  await user.click(screen.getByRole("button", { name: "退会する" }));
+  await user.click(screen.getByRole("button", { name: "アプリを退会する" }));
   return user;
 };
 

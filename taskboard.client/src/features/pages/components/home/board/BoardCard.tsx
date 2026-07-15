@@ -35,11 +35,11 @@ const BoardCard = ({
         onClick={handleCardClick}
         className="w-full grid bg-primary-button rounded border grid-cols-10 hover:bg-primary-button-hover"
       >
-        <div className="flex items-center border-r col-span-2 px-2 h-8 min-w-0">
-          <span className="truncate">{boardInfo.shortName}</span>
-        </div>
         <div className="flex items-center border-r col-span-4 px-2 h-8 min-w-0">
           <span className="truncate">{boardInfo.title}</span>
+        </div>
+        <div className="flex items-center border-r col-span-2 px-2 h-8 min-w-0">
+          <span className="truncate">{boardInfo.shortName}</span>
         </div>
         <div className="flex items-center col-span-4 px-2 h-8 min-w-0">
           <span className="truncate">

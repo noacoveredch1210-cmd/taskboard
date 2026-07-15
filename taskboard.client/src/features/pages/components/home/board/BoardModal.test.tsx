@@ -6,7 +6,7 @@ import type { BoardInfo } from "../../../../../types/boardInfo";
 
 const titleInput = () => screen.getByPlaceholderText("board名を入力...");
 const shortNameInput = () =>
-  screen.getByPlaceholderText("board の short name を入力...");
+  screen.getByPlaceholderText("board の見出し名を入力...");
 
 // 各テストごとに新しい user を用意し、入力状態がテスト間で漏れないようにする
 let user: ReturnType<typeof userEvent.setup>;
@@ -24,7 +24,8 @@ describe("BoardModal（新規）", () => {
     expect(screen.getByDisplayValue("完了")).toBeInTheDocument();
   });
 
-  it("タイトルか略称が空なら作成しない（閉じるだけ）", async () => {    const onCreateBoard = vi.fn();
+  it("タイトルか略称が空なら作成しない（閉じるだけ）", async () => {
+    const onCreateBoard = vi.fn();
     const onClose = vi.fn();
     render(<BoardModal onCreateBoard={onCreateBoard} onClose={onClose} />);
     await user.click(screen.getByText("保存"));
@@ -32,7 +33,8 @@ describe("BoardModal（新規）", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("入力して保存すると onCreateBoard を呼ぶ", async () => {    const onCreateBoard = vi.fn();
+  it("入力して保存すると onCreateBoard を呼ぶ", async () => {
+    const onCreateBoard = vi.fn();
     render(<BoardModal onCreateBoard={onCreateBoard} onClose={vi.fn()} />);
     await user.type(titleInput(), "新ボード");
     await user.type(shortNameInput(), "NB");
@@ -44,12 +46,17 @@ describe("BoardModal（新規）", () => {
     expect(positions).toHaveLength(3);
   });
 
-  it("Enter で position を追加できる", async () => {    render(<BoardModal onCreateBoard={vi.fn()} onClose={vi.fn()} />);
-    await user.type(screen.getByPlaceholderText("+ positionを追加"), "レビュー{Enter}");
+  it("Enter で position を追加できる", async () => {
+    render(<BoardModal onCreateBoard={vi.fn()} onClose={vi.fn()} />);
+    await user.type(
+      screen.getByPlaceholderText("+ positionを追加"),
+      "レビュー{Enter}",
+    );
     expect(screen.getByDisplayValue("レビュー")).toBeInTheDocument();
   });
 
-  it("position の削除は確認モーダルを経て反映される", async () => {    render(<BoardModal onCreateBoard={vi.fn()} onClose={vi.fn()} />);
+  it("position の削除は確認モーダルを経て反映される", async () => {
+    render(<BoardModal onCreateBoard={vi.fn()} onClose={vi.fn()} />);
     const card = screen.getByDisplayValue("処理中").closest("div")!;
     await user.click(within(card).getByText("close").closest("button")!);
     expect(screen.getByText("「処理中」を削除しますか？")).toBeInTheDocument();
@@ -59,7 +66,8 @@ describe("BoardModal（新規）", () => {
 });
 
 describe("BoardModal（編集）", () => {
-  it("既存 board の値を反映し、変更を onSetBoard に渡す", async () => {    const board: BoardInfo = {
+  it("既存 board の値を反映し、変更を onSetBoard に渡す", async () => {
+    const board: BoardInfo = {
       id: "b1",
       shortName: "OLD",
       title: "旧ボード",

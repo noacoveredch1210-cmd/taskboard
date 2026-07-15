@@ -7,9 +7,9 @@ const CreateButton = ({ onOpenModal }: Props) => {
     <button
       type="button"
       onClick={onOpenModal}
-      className="bg-primary-button hover:bg-primary-button-hover w-8 h-8 flex items-center justify-center rounded absolute bottom-2 right-2"
+      className="btn-base  px-5 border min-w-0 truncate bg-primary-button hover:bg-primary-button-hover"
     >
-      <span className="material-symbols-outlined">add</span>
+      ボードの追加
     </button>
   );
 };
