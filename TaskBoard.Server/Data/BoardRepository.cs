@@ -170,14 +170,31 @@ namespace TaskBoard.Server.Data
             var self = actingUserId == targetUserId;
             if (!self && !await IsBoardOwnerAsync(boardId, actingUserId)) return false;
 
-            // オーナー行は外せない（ボードを消したいならオーナーが board を削除する）。
-            const string sql = """
-            DELETE FROM board_members
-            WHERE board_id = @BoardId AND user_id = @TargetUserId AND role <> 'owner'
-            """;
-            var affectedRows = await Connection.ExecuteAsync(sql,
+            // 対象がオーナーのときの扱い:
+            //   - 他人のオーナーは外せない（自分で退出するのは可）
+            //   - 最後の 1 人のオーナーは退出できない（管理者不在を防ぐ。降格の保護と同じ考え方）
+            if (await IsBoardOwnerAsync(boardId, targetUserId))
+            {
+                if (!self) return false;
+
+                var ownerCount = await Connection.ExecuteScalarAsync<int>(
+                    "SELECT COUNT(*) FROM board_members WHERE board_id = @BoardId AND role = 'owner'",
+                    new { BoardId = boardId });
+                if (ownerCount <= 1) return false;
+            }
+
+            var affectedRows = await Connection.ExecuteAsync(
+                "DELETE FROM board_members WHERE board_id = @BoardId AND user_id = @TargetUserId",
                 new { BoardId = boardId, TargetUserId = targetUserId });
-            return affectedRows > 0;
+            if (affectedRows == 0) return false;
+
+            // 抜けた人が担当していたタスクは未担当に戻す
+            // （assignee は「同一 board のメンバー」に限る不変条件を保つ）。
+            await Connection.ExecuteAsync(
+                "UPDATE tasks SET assignee_id = NULL WHERE board_id = @BoardId AND assignee_id = @TargetUserId",
+                new { BoardId = boardId, TargetUserId = targetUserId });
+
+            return true;
         }
 
         public async Task<bool> SetMemberRoleAsync(

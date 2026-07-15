@@ -176,6 +176,71 @@ namespace TaskBoard.Server.IntegrationTests.Repositories
             Assert.False(await repository.SetMemberRoleAsync(boardId, Owner, Owner, "member"));
         }
 
+        [SkippableFact]
+        public async Task メンバーは退出できる_他人は外せない()
+        {
+            RequireDocker();
+            using var connection = await Fixture.OpenConnectionAsync();
+            await SeedUserAsync(connection, Owner, "owner@example.com");
+            await SeedUserAsync(connection, Stranger, "stranger@example.com");
+            var repository = new BoardRepository(connection);
+
+            var boardId = Guid.NewGuid();
+            await repository.CreateAsync(NewBoard(boardId, Owner, "SHARED"));
+            await JoinAndApproveAsync(repository, boardId, Owner, Stranger);
+
+            // メンバー（Stranger）は自分で退出できる。
+            Assert.True(await repository.RemoveMemberAsync(boardId, Stranger, Stranger));
+            Assert.Null(await repository.GetByIdAsync(boardId, Stranger));
+        }
+
+        [SkippableFact]
+        public async Task オーナーは他にオーナーがいれば退出でき_最後のオーナーは退出できない()
+        {
+            RequireDocker();
+            using var connection = await Fixture.OpenConnectionAsync();
+            await SeedUserAsync(connection, Owner, "owner@example.com");
+            await SeedUserAsync(connection, Stranger, "stranger@example.com");
+            var repository = new BoardRepository(connection);
+
+            var boardId = Guid.NewGuid();
+            await repository.CreateAsync(NewBoard(boardId, Owner, "SHARED"));
+
+            // まだ 1 人しかオーナーがいないので、Owner は退出できない。
+            Assert.False(await repository.RemoveMemberAsync(boardId, Owner, Owner));
+            Assert.NotNull(await repository.GetByIdAsync(boardId, Owner));
+
+            // Stranger を招いてオーナーに昇格すると、オーナーは 2 人になる。
+            await JoinAndApproveAsync(repository, boardId, Owner, Stranger);
+            await repository.SetMemberRoleAsync(boardId, Owner, Stranger, "owner");
+
+            // 他にオーナーがいるので Owner は退出できる。
+            Assert.True(await repository.RemoveMemberAsync(boardId, Owner, Owner));
+            Assert.Null(await repository.GetByIdAsync(boardId, Owner));
+
+            // 残った Stranger は最後のオーナーなので退出できない。
+            Assert.False(await repository.RemoveMemberAsync(boardId, Stranger, Stranger));
+        }
+
+        [SkippableFact]
+        public async Task オーナーは他人のオーナーを外せない()
+        {
+            RequireDocker();
+            using var connection = await Fixture.OpenConnectionAsync();
+            await SeedUserAsync(connection, Owner, "owner@example.com");
+            await SeedUserAsync(connection, Stranger, "stranger@example.com");
+            var repository = new BoardRepository(connection);
+
+            var boardId = Guid.NewGuid();
+            await repository.CreateAsync(NewBoard(boardId, Owner, "SHARED"));
+            await JoinAndApproveAsync(repository, boardId, Owner, Stranger);
+            await repository.SetMemberRoleAsync(boardId, Owner, Stranger, "owner");
+
+            // オーナー同士でも、他人のオーナーは外せない（本人の退出のみ）。
+            Assert.False(await repository.RemoveMemberAsync(boardId, Owner, Stranger));
+            Assert.NotNull(await repository.GetByIdAsync(boardId, Stranger));
+        }
+
         /// <summary>共有トークンで参加リクエストを出し、オーナーが承認してメンバーにする。</summary>
         private static async Task JoinAndApproveAsync(
             BoardRepository repository, Guid boardId, Guid owner, Guid requester)

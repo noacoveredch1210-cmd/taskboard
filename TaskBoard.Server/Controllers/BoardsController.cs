@@ -134,7 +134,7 @@ namespace TaskBoard.Server.Controllers
         }
 
         // POST /api/boards/{id}/leave （自分がこのボードから退出する）
-        // オーナーは退出できない（ボードを削除するか、他者にオーナーを譲ってから抜ける）。
+        // オーナーも退出できるが、最後の 1 人のオーナーは不可（先に他者へオーナーを譲るか board を削除する）。
         [HttpPost("{id}/leave")]
         public async Task<IActionResult> Leave(Guid id)
         {

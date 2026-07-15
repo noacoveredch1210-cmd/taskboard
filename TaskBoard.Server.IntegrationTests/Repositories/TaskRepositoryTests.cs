@@ -129,6 +129,65 @@ namespace TaskBoard.Server.IntegrationTests.Repositories
             Assert.Equal(new DateOnly(2026, 7, 13), task!.Deadline);
         }
 
+        [SkippableFact]
+        public async Task Create_は同一boardのメンバーを担当者にできる()
+        {
+            RequireDocker();
+            using var connection = await Fixture.OpenConnectionAsync();
+            var world = await SeedWorldAsync(connection);
+            var repository = new TaskRepository(connection);
+
+            var taskId = Guid.NewGuid();
+            var request = NewTask(taskId, world.OwnerBoard, world.OwnerPosition);
+            request.AssigneeId = Owner; // Owner は OwnerBoard のメンバー
+
+            Assert.True(await repository.CreateAsync(request, Owner));
+            var task = await repository.GetByIdAsync(taskId, Owner);
+            Assert.Equal(Owner, task!.AssigneeId);
+        }
+
+        [SkippableFact]
+        public async Task Create_はメンバーでないユーザーを担当者にできない()
+        {
+            RequireDocker();
+            using var connection = await Fixture.OpenConnectionAsync();
+            var world = await SeedWorldAsync(connection);
+            var repository = new TaskRepository(connection);
+
+            var request = NewTask(Guid.NewGuid(), world.OwnerBoard, world.OwnerPosition);
+            request.AssigneeId = Stranger; // Stranger は OwnerBoard のメンバーではない
+
+            Assert.False(await repository.CreateAsync(request, Owner));
+        }
+
+        [SkippableFact]
+        public async Task 担当者がboardを退出するとタスクは未担当に戻る()
+        {
+            RequireDocker();
+            using var connection = await Fixture.OpenConnectionAsync();
+            var world = await SeedWorldAsync(connection);
+            var boards = new BoardRepository(connection);
+            var tasks = new TaskRepository(connection);
+
+            // Stranger を OwnerBoard のメンバーにする（承認制フロー）。
+            var token = await boards.GetShareTokenAsync(world.OwnerBoard, Owner);
+            await boards.RequestJoinByTokenAsync(token!.Value, Stranger);
+            await boards.ApproveJoinRequestAsync(world.OwnerBoard, Owner, Stranger);
+
+            // Stranger を担当者にしたタスクを作る。
+            var taskId = Guid.NewGuid();
+            var request = NewTask(taskId, world.OwnerBoard, world.OwnerPosition);
+            request.AssigneeId = Stranger;
+            Assert.True(await tasks.CreateAsync(request, Stranger));
+
+            // Stranger が退出すると、その担当は外れる（未担当に戻る）。
+            Assert.True(await boards.RemoveMemberAsync(world.OwnerBoard, Stranger, Stranger));
+
+            var task = await tasks.GetByIdAsync(taskId, Owner);
+            Assert.NotNull(task);
+            Assert.Null(task!.AssigneeId);
+        }
+
         // ---- 2 ユーザー分の board / position / category を用意する ----
 
         private record World(

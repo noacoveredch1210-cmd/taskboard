@@ -46,7 +46,10 @@ namespace TaskBoard.Server.Data
         Task<bool> RejectJoinRequestAsync(Guid boardId, Guid actingUserId, Guid targetUserId);
         /// <summary>メンバー一覧（メンバーのみ取得可）。</summary>
         Task<IEnumerable<BoardMember>> GetMembersAsync(Guid boardId, Guid userId);
-        /// <summary>メンバーを外す。オーナーは他人を外せる。本人はいつでも退出できる。オーナー自身は外せない。</summary>
+        /// <summary>
+        /// メンバーを外す。オーナーは他のメンバーを外せる。本人はいつでも退出できるが、
+        /// 最後の 1 人のオーナーは退出できない（他人のオーナーを外すこともできない）。
+        /// </summary>
         Task<bool> RemoveMemberAsync(Guid boardId, Guid actingUserId, Guid targetUserId);
         /// <summary>
         /// メンバーの役割を変える（オーナーのみ）。最後の 1 人のオーナーは降格できない。

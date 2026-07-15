@@ -47,6 +47,11 @@ const MembersModal = ({ boardInfo, onClose, onLeaveBoard }: Props) => {
   const isOwner = boardInfo.role === "owner";
   const myId = user?.id;
 
+  // 退出できるか：メンバーは常に可。オーナーは他にオーナーがいるときだけ
+  // （最後の 1 人のオーナーは退出できない）。
+  const ownerCount = members.filter((m) => m.role === "owner").length;
+  const canLeave = !isOwner || ownerCount >= 2;
+
   // setState は .then/.finally コールバック内に置く（effect 内での同期 setState を避ける）。
   const load = useCallback(() => {
     Promise.all([
@@ -256,8 +261,8 @@ const MembersModal = ({ boardInfo, onClose, onLeaveBoard }: Props) => {
             </ul>
           )}
 
-          {/* メンバー（非オーナー）は自分でこのボードから退出できる */}
-          {!isOwner &&
+          {/* 自分でこのボードから退出できる（最後のオーナーは不可） */}
+          {canLeave &&
             (confirmingLeave ? (
               <div className="mt-2 flex flex-col gap-3 border-t pt-4">
                 <p className="text-sm text-gray-600">
