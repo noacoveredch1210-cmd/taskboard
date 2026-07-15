@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Category } from "../../../../../types/category";
-import CategoryModal from "../../modal/CategoryModal";
+import CreateCategoryModal from "./CreateCategoryModal";
 
 type Props = {
   category: Category;
@@ -36,7 +36,7 @@ const CategoryCard = ({
         {category.name}
       </button>
       {openCustomModal && (
-        <CategoryModal
+        <CreateCategoryModal
           onClose={() => setOpenCustomModal(false)}
           category={category}
           onSetCategory={onSetCategory}

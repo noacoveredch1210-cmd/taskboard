@@ -6,7 +6,7 @@ export const TEXT_LIMITS = {
   boardTitle: 30,
   boardShortName: 10,
   positionName: 8,
-  categoryName: 15,
+  categoryName: 30,
   taskName: 40,
   taskComment: 500,
 } as const;

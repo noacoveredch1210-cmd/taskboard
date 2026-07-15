@@ -7,7 +7,7 @@ import BoardView from "./board/BoardView";
 import LogoutButton from "./LogoutButton";
 import DeleteAccountButton from "./DeleteAccountButton";
 import JoinBoardButton from "./JoinBoardButton";
-import CreateButton from "./CreateButton";
+import CreateButton from "../CreateButton";
 import { useState } from "react";
 import BoardModal from "./board/BoardModal";
 import Hint from "./Hint";
@@ -41,7 +41,10 @@ const HomePage = ({
         <LogoutButton />
       </div>
       <div className="flex gap-3">
-        <CreateButton onOpenModal={() => setOpenCreateBoardModal(true)} />
+        <CreateButton
+          buttonName="ボードの追加"
+          onOpenModal={() => setOpenCreateBoardModal(true)}
+        />
         <JoinBoardButton onJoinBoard={onJoinBoard} />
         <Hint />
       </div>

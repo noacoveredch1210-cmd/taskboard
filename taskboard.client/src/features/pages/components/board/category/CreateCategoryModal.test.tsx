@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import CategoryModal from "./CategoryModal";
+import CreateCategoryModal from "./CreateCategoryModal";
 
 const nameInput = () =>
   screen.getByPlaceholderText("カテゴリー名を入力...") as HTMLInputElement;
@@ -13,11 +13,15 @@ beforeEach(() => {
   user = userEvent.setup();
 });
 
-describe("CategoryModal（新規）", () => {
-  it("名前を入れて追加すると onCreateCategory を呼ぶ（既定色）", async () => {    const onCreateCategory = vi.fn();
+describe("CreateCategoryModal（新規）", () => {
+  it("名前を入れて追加すると onCreateCategory を呼ぶ（既定色）", async () => {
+    const onCreateCategory = vi.fn();
     const onClose = vi.fn();
     render(
-      <CategoryModal onCreateCategory={onCreateCategory} onClose={onClose} />,
+      <CreateCategoryModal
+        onCreateCategory={onCreateCategory}
+        onClose={onClose}
+      />,
     );
     await user.type(nameInput(), "仕事");
     await user.click(screen.getByText("追加"));
@@ -25,10 +29,14 @@ describe("CategoryModal（新規）", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("名前が空なら作成せず閉じる", async () => {    const onCreateCategory = vi.fn();
+  it("名前が空なら作成せず閉じる", async () => {
+    const onCreateCategory = vi.fn();
     const onClose = vi.fn();
     render(
-      <CategoryModal onCreateCategory={onCreateCategory} onClose={onClose} />,
+      <CreateCategoryModal
+        onCreateCategory={onCreateCategory}
+        onClose={onClose}
+      />,
     );
     await user.click(screen.getByText("追加"));
     expect(onCreateCategory).not.toHaveBeenCalled();
@@ -36,11 +44,12 @@ describe("CategoryModal（新規）", () => {
   });
 });
 
-describe("CategoryModal（編集）", () => {
-  it("初期値を反映し、変更で onSetCategory を呼ぶ", async () => {    const onSetCategory = vi.fn();
+describe("CreateCategoryModal（編集）", () => {
+  it("初期値を反映し、変更で onSetCategory を呼ぶ", async () => {
+    const onSetCategory = vi.fn();
     const category = { id: "c1", name: "旧名", color: "#ff0000" };
     render(
-      <CategoryModal
+      <CreateCategoryModal
         category={category}
         onSetCategory={onSetCategory}
         onClose={vi.fn()}

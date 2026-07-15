@@ -1,8 +1,8 @@
 import { useState } from "react";
-import ModalBase from "../ModalBase";
-import type { Category } from "../../../../types/category";
-import CharCounter from "../../../../components/CharCounter";
-import { TEXT_LIMITS } from "../../../../constants/textLimits";
+import ModalBase from "../../ModalBase";
+import type { Category } from "../../../../../types/category";
+import CharCounter from "../../../../../components/CharCounter";
+import { TEXT_LIMITS } from "../../../../../constants/textLimits";
 
 type Props = {
   onClose: () => void;
@@ -11,7 +11,7 @@ type Props = {
   onSetCategory?: (categoryId: string, updates: Partial<Category>) => void;
 };
 
-const CategoryModal = ({
+const CreateCategoryModal = ({
   onClose,
   category,
   onCreateCategory,
@@ -34,7 +34,10 @@ const CategoryModal = ({
           className="border rounded px-2 w-full min-w-100"
           placeholder="カテゴリー名を入力..."
         ></input>
-        <CharCounter current={draftName.length} max={TEXT_LIMITS.categoryName} />
+        <CharCounter
+          current={draftName.length}
+          max={TEXT_LIMITS.categoryName}
+        />
       </div>
       <div className="py-2">
         <div className="font-medium text-lg">テーマ色</div>
@@ -69,4 +72,4 @@ const CategoryModal = ({
   );
 };
 
-export default CategoryModal;
+export default CreateCategoryModal;

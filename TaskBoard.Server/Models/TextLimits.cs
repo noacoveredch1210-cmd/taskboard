@@ -10,7 +10,7 @@ namespace TaskBoard.Server.Models
         public const int BoardTitle = 30;
         public const int BoardShortName = 10;
         public const int PositionName = 8;
-        public const int CategoryName = 15;
+        public const int CategoryName = 30;
         public const int TaskName = 40;
         public const int TaskComment = 500;
 

@@ -1,6 +1,5 @@
 import { useState } from "react";
-import ModalBase from "../ModalBase";
-import CategoryView from "../home/category/CategoryView";
+import CategoryModal from "./category/CategoryModal";
 import MembersModal from "./MembersModal";
 import { useToast } from "../../../../components/toast/ToastContext";
 import type { BoardInfo } from "../../../../types/boardInfo";
@@ -88,21 +87,16 @@ const BoardToolbar = ({
       )}
 
       {showCategories && (
-        <ModalBase
-          className="p-8 max-w-full"
+        <CategoryModal
+          categories={boardInfo.categories}
+          boardInfo={boardInfo}
+          onSetCategory={(categoryId, updates) =>
+            onSetCategory(boardInfo.id, categoryId, updates)
+          }
+          onCreateCategory={onCreateCategory}
+          onDeleteCategories={(ids) => onDeleteCategories(boardInfo.id, ids)}
           onClose={() => setShowCategories(false)}
-        >
-          <CategoryView
-            categories={boardInfo.categories}
-            onCreateCategory={(name, color) =>
-              onCreateCategory(boardInfo.id, name, color)
-            }
-            onSetCategory={(categoryId, updates) =>
-              onSetCategory(boardInfo.id, categoryId, updates)
-            }
-            onDeleteCategories={(ids) => onDeleteCategories(boardInfo.id, ids)}
-          />
-        </ModalBase>
+        />
       )}
     </div>
   );
