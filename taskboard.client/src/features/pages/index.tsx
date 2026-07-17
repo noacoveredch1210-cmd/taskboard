@@ -59,9 +59,14 @@ const Pages = ({
   onLeaveBoard,
   onRestoreTask,
 }: Props) => {
+  // 開いていた board が消えることがある（削除・退出・作成の巻き戻し）。
+  // 範囲外の index をそのまま渡すと undefined を触って描画中に落ちるので、ホームへ戻す。
+  const openingBoard =
+    openingPageIndex === null ? undefined : boards[openingPageIndex];
+
   return (
     <>
-      {openingPageIndex === null ? (
+      {!openingBoard ? (
         <div className="w-full">
           <HomePage
             userInfo={userInfo}
@@ -75,7 +80,7 @@ const Pages = ({
       ) : (
         <div className="h-full">
           <BoardPage
-            boardInfo={boards[openingPageIndex]}
+            boardInfo={openingBoard}
             onSaveTask={onSaveTask}
             onCreateCategory={onCreateCategory}
             onSetCategory={onSetCategory}

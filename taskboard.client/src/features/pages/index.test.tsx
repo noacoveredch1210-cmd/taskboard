@@ -76,4 +76,13 @@ describe("Pages", () => {
 
     expect(screen.getByText("ボード: ボードA")).toBeInTheDocument();
   });
+
+  // 開いていた board は消えることがある（削除・退出・作成の巻き戻し）。
+  // index が範囲外のまま undefined を渡すと、描画中に落ちて画面が真っ白になる。
+  it("開いていた board が消えていたら、落ちずにホーム画面へ戻す", () => {
+    renderPages(5); // boards は 2 件しかない
+
+    expect(screen.getByText("ホーム")).toBeInTheDocument();
+    expect(screen.queryByText(/^ボード:/)).not.toBeInTheDocument();
+  });
 });
