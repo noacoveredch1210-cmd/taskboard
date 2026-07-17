@@ -4,6 +4,8 @@
 
 **デモ**: https://taskboard-zeta-eight.vercel.app （Google アカウントでログイン）
 
+> API は無料枠（Render）で動いており、しばらくアクセスが無いと停止します。**初回は起動に 30 秒ほどかかります**（2 回目以降は即座に開きます）。待っている間はアプリ側にも起動中である旨を表示します。
+
 [![CI](https://github.com/noacoveredch1210-cmd/taskboard/actions/workflows/ci.yml/badge.svg)](https://github.com/noacoveredch1210-cmd/taskboard/actions/workflows/ci.yml)
 
 ![TaskBoard の操作デモ](docs/demo.gif)
