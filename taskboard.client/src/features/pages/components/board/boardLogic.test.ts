@@ -17,7 +17,6 @@ const t = (id: string, positionId: string): TaskInfo => ({
   categoryId: "",
   positionId,
   assigneeId: "",
-  orderIndex: 0,
 });
 
 const ids = (tasks: TaskInfo[] | null) => tasks?.map((x) => x.id);

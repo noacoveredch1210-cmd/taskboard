@@ -104,7 +104,6 @@ const toTaskInfo = (dto: TaskDto): TaskInfo => {
     categoryId: dto.categoryId ?? "",
     positionId: dto.positionId ?? "",
     assigneeId: dto.assigneeId ?? "",
-    orderIndex: dto.orderIndex,
   };
 };
 

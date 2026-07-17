@@ -13,7 +13,6 @@ const task: TaskInfo = {
   categoryId: "c1",
   positionId: "p1",
   assigneeId: "",
-  orderIndex: 0,
 };
 
 const category: Category = { id: "c1", name: "仕事", color: "#ff0000" };

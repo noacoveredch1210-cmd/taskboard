@@ -81,7 +81,6 @@ const task = (overrides: Partial<TaskInfo> & { id: string }): TaskInfo => ({
   categoryId: "",
   positionId: "pos-1",
   assigneeId: "",
-  orderIndex: 0,
   ...overrides,
 });
 
@@ -155,8 +154,8 @@ describe("saveTask", () => {
     const { result } = await renderLoaded([
       board({
         tasks: [
-          task({ id: "t1", positionId: "pos-1", orderIndex: 0 }),
-          task({ id: "t2", positionId: "pos-1", orderIndex: 5 }),
+          task({ id: "t1", positionId: "pos-1" }),
+          task({ id: "t2", positionId: "pos-1" }),
         ],
       }),
     ]);
@@ -177,8 +176,8 @@ describe("saveTask", () => {
     const { result } = await renderLoaded([
       board({
         tasks: [
-          task({ id: "t1", positionId: "pos-1", orderIndex: 0 }),
-          task({ id: "t2", positionId: "pos-1", orderIndex: 1 }),
+          task({ id: "t1", positionId: "pos-1" }),
+          task({ id: "t2", positionId: "pos-1" }),
         ],
       }),
     ]);
@@ -282,16 +281,16 @@ describe("通信が切れていて再取得もできない場合", () => {
   it("タスクの移動を、ドラッグ開始時点の並びへ巻き戻す", async () => {
     mocks.moveTask.mockRejectedValue(new Error("boom"));
     const before = [
-      task({ id: "a", positionId: "pos-1", orderIndex: 0 }),
-      task({ id: "moved", positionId: "pos-1", orderIndex: 1 }),
+      task({ id: "a", positionId: "pos-1" }),
+      task({ id: "moved", positionId: "pos-1" }),
     ];
     const { result } = await renderLoaded([board({ tasks: before })]);
     mocks.loadBoards.mockRejectedValue(new Error("offline"));
 
     // ドラッグ中のライブ反映（reorderTasks）で state は既に移動後になっている。
     const after = [
-      task({ id: "moved", positionId: "pos-2", orderIndex: 1 }),
-      task({ id: "a", positionId: "pos-1", orderIndex: 0 }),
+      task({ id: "moved", positionId: "pos-2" }),
+      task({ id: "a", positionId: "pos-1" }),
     ];
     await act(async () => {
       result.current.reorderTasks("board-1", after);
@@ -580,10 +579,10 @@ describe("共有", () => {
 
 describe("reorderTasks", () => {
   it("state だけを更新し、API は呼ばない（ドラッグ中のライブ反映）", async () => {
-    const tasks = [task({ id: "a", orderIndex: 0 })];
+    const tasks = [task({ id: "a" })];
     const { result } = await renderLoaded([board({ tasks })]);
 
-    const reordered = [task({ id: "a", orderIndex: 0, name: "移動中" })];
+    const reordered = [task({ id: "a", name: "移動中" })];
     act(() => {
       result.current.reorderTasks("board-1", reordered);
     });
@@ -653,7 +652,7 @@ describe("setBoard", () => {
 
     const { result } = await renderLoaded([
       board({
-        tasks: [task({ id: "t1", positionId: "pos-2", orderIndex: 0 })],
+        tasks: [task({ id: "t1", positionId: "pos-2" })],
       }),
     ]);
 

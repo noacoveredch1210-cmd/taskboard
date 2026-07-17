@@ -128,7 +128,6 @@ describe("TaskModal（編集）", () => {
       categoryId: "c1",
       positionId: "p1",
       assigneeId: "u1",
-      orderIndex: 0,
     };
     const onSaveTask = vi.fn();
     render(

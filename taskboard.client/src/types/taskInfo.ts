@@ -10,6 +10,6 @@ export type TaskInfo = {
   positionId: string;
   // 担当者の user id（未設定は空文字 ""）
   assigneeId: string;
-  // 同一 position 内での並び順（分数を許容。両隣の中間値を入れて 1 件だけ更新する）
-  orderIndex: number;
+  // order_index は持たない。並び順の値はサーバーが採番するもので、
+  // クライアントは配列順で表示し、移動時は「両隣は誰か」だけを送る。
 };

@@ -25,7 +25,6 @@ const makeTask = (over: Partial<TaskInfo>): TaskInfo => ({
   categoryId: "",
   positionId: "p1",
   assigneeId: "",
-  orderIndex: 0,
   ...over,
 });
 

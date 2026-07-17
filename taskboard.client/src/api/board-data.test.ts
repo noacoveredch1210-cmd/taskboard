@@ -47,7 +47,6 @@ const baseTask: TaskInfo = {
   categoryId: "cat-1",
   positionId: "pos-1",
   assigneeId: "assignee-1",
-  orderIndex: 1.5,
 };
 
 const boardDto = (over: Partial<BoardDto> = {}): BoardDto => ({
@@ -79,6 +78,7 @@ const taskDto = (over: Partial<TaskDto> = {}): TaskDto => ({
   comment: "コメント",
   importance: 2,
   deadline: "2026-07-08",
+  // サーバーは order_index を返す（UI 側では使わないが、DTO の形としては持つ）
   orderIndex: 1.5,
   createdAt: "2026-01-01T00:00:00Z",
   ...over,

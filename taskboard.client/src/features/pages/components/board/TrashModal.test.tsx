@@ -38,7 +38,6 @@ const task = (id: string, name: string): TaskInfo => ({
   categoryId: "",
   positionId: "",
   assigneeId: "",
-  orderIndex: 0,
 });
 
 let user: ReturnType<typeof userEvent.setup>;
