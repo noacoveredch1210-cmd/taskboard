@@ -214,10 +214,11 @@ const renderTwoCol = () => {
   const onReorderTasks = vi.fn();
   const onCommitTaskMove = vi.fn();
   const onDeleteTasks = vi.fn();
+  const onSaveTask = vi.fn();
   render(
     <BoardPage
       boardInfo={twoColBoard}
-      onSaveTask={vi.fn()}
+      onSaveTask={onSaveTask}
       onCreateCategory={vi.fn()}
       onSetCategory={vi.fn()}
       onDeleteCategories={vi.fn()}
@@ -229,8 +230,12 @@ const renderTwoCol = () => {
       onRestoreTask={vi.fn()}
     />,
   );
-  return { onReorderTasks, onCommitTaskMove, onDeleteTasks };
+  return { onReorderTasks, onCommitTaskMove, onDeleteTasks, onSaveTask };
 };
+
+/** 「＋」は各列にあるので、列の番号で選ぶ。 */
+const clickAddButtonOfColumn = (index: number) =>
+  user.click(screen.getAllByText("add")[index].closest("button")!);
 
 describe("BoardPage（クリック操作）", () => {
   it("「進む」で次の position へ移動し保存する", async () => {
@@ -285,10 +290,25 @@ describe("BoardPage（クリック操作）", () => {
 
   it("＋ボタンで新規タスク作成モーダルが開く", async () => {
     renderTwoCol();
-    await user.click(screen.getByText("add").closest("button")!);
+    await clickAddButtonOfColumn(0);
     const input = screen.getByPlaceholderText(
       "タスク名を入力...",
     ) as HTMLInputElement;
     expect(input.value).toBe(""); // 新規なので空
+  });
+
+  // 「＋」は各列にある。押した列が既定になっていないと、
+  // 2 列目で追加したのに 1 列目へ入ってしまう。
+  it("押した列が新規タスクの position の既定になる", async () => {
+    const { onSaveTask } = renderTwoCol();
+
+    // 2 列目（Done）の「＋」から追加する
+    await clickAddButtonOfColumn(1);
+    await user.type(screen.getByPlaceholderText("タスク名を入力..."), "新規");
+    await user.click(screen.getByText("保存"));
+
+    expect(onSaveTask).toHaveBeenCalledTimes(1);
+    const [, task] = onSaveTask.mock.calls[0] as [string, TaskInfo];
+    expect(task.positionId).toBe("p2");
   });
 });

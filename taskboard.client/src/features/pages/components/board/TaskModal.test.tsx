@@ -14,13 +14,14 @@ const positions: Position[] = [
 ];
 const members: Member[] = [{ id: "u1", name: "太郎" }];
 
-const renderNew = () => {
+const renderNew = (defaultPositionId?: string) => {
   const onSaveTask = vi.fn();
   const onClose = vi.fn();
   render(
     <TaskModal
       boardId="b1"
       positions={positions}
+      defaultPositionId={defaultPositionId}
       categories={categories}
       members={members}
       onSaveTask={onSaveTask}
@@ -36,6 +37,38 @@ let user: ReturnType<typeof userEvent.setup>;
 
 beforeEach(() => {
   user = userEvent.setup();
+});
+
+describe("TaskModal（新規作成時の position の既定値）", () => {
+  // 「＋」は各列にあるので、押した列が選ばれた状態で開いてほしい。
+  it("渡された列を既定にする", async () => {
+    const { onSaveTask } = renderNew("p2");
+    await user.type(screen.getByPlaceholderText("タスク名を入力..."), "買い物");
+    await user.click(screen.getByText("保存"));
+
+    const [, task] = onSaveTask.mock.calls[0] as [string, TaskInfo];
+    expect(task.positionId).toBe("p2");
+  });
+
+  it("未指定なら先頭の列を既定にする", async () => {
+    const { onSaveTask } = renderNew();
+    await user.type(screen.getByPlaceholderText("タスク名を入力..."), "買い物");
+    await user.click(screen.getByText("保存"));
+
+    const [, task] = onSaveTask.mock.calls[0] as [string, TaskInfo];
+    expect(task.positionId).toBe("p1");
+  });
+
+  it("既定を渡しても、開いてから別の列へ変えられる", async () => {
+    const { onSaveTask } = renderNew("p2");
+    await user.type(screen.getByPlaceholderText("タスク名を入力..."), "買い物");
+    // combobox は [0]=ポジション
+    await user.selectOptions(screen.getAllByRole("combobox")[0], "p1");
+    await user.click(screen.getByText("保存"));
+
+    const [, task] = onSaveTask.mock.calls[0] as [string, TaskInfo];
+    expect(task.positionId).toBe("p1");
+  });
 });
 
 describe("TaskModal（新規）", () => {

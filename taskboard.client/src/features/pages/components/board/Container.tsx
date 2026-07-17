@@ -144,15 +144,17 @@ const Container = ({
       className={
         width !== undefined
           ? "bg-white h-full p-3 shrink-0 gap-3 flex flex-col relative"
-          : "bg-white h-full p-3 shrink-0 gap-3 flex flex-col relative w-[clamp(240px,16vw,400px)]"
+          : "bg-white h-full p-3 shrink-0 gap-3 flex flex-col relative w-[clamp(240px,20vw,400px)]"
       }
     >
-      <div className="flex justify-between items-center">
-        <div className="flex gap-3 items-center">
-          <div className="cursor-default font-medium text-lg">
+      <div className="flex justify-between items-center gap-2">
+        {/* min-w-0 と wrap-break-word が無いと、空白の無い長い列名（英数の羅列）が
+            折り返らず列を突き抜ける。日本語は放っておいても折り返るので気づきにくい。 */}
+        <div className="flex gap-3 items-center min-w-0">
+          <div className="cursor-default font-medium text-lg min-w-0 wrap-break-word">
             {positionName}
           </div>
-          <div className="cursor-default text-sm bg-gray-200 w-10 rounded h-5 flex items-center justify-center">
+          <div className="cursor-default text-sm bg-gray-200 w-10 shrink-0 rounded h-5 flex items-center justify-center">
             {taskLength}
           </div>
           {selectable && (
@@ -163,13 +165,12 @@ const Container = ({
               onChange={() =>
                 onSetSelectedTaskIds(allSelected ? [] : tasks.map((t) => t.id))
               }
-              className="w-5 h-5 accent-primary"
+              className="w-5 h-5 shrink-0 accent-primary"
             ></input>
           )}
         </div>
-        {positionIdx === 0 && (
-          <CreateTaskButton onClick={() => setOpenTaskModal(true)} />
-        )}
+        <CreateTaskButton onClick={() => setOpenTaskModal(true)} />
+
         {isLastColumn && canDelete && (
           <SelectButton
             isSelectMode={isSelectMode}
@@ -237,6 +238,8 @@ const Container = ({
         <TaskModal
           boardId={boardInfo.id}
           positions={boardInfo.positions}
+          // 「＋」は各列にあるので、押したこの列を既定にする
+          defaultPositionId={positionId}
           categories={categories}
           members={boardInfo.members}
           onSaveTask={onSaveTask}

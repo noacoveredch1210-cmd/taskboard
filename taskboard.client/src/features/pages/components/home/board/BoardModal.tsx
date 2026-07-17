@@ -130,7 +130,7 @@ const BoardModal = ({ onClose, board, onSetBoard, onCreateBoard }: Props) => {
 
   return (
     <ModalBase className="p-5 flex flex-col gap-3" onClose={onClose}>
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 w-150">
         <div className="cursor-default font-medium text-lg">
           {board ? "board 編集" : "board 追加"}
         </div>

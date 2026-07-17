@@ -33,7 +33,7 @@ const PositionCard = ({
     <div
       ref={setNodeRef}
       style={style}
-      className="px-2 border rounded w-40 flex items-center justify-between bg-white"
+      className="px-2 border rounded w-60 flex items-center justify-between bg-white"
     >
       {/* このつまみを持つとドラッグできる */}
       <span

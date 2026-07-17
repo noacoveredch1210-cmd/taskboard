@@ -14,8 +14,12 @@ import { TEXT_LIMITS } from "../../../../constants/textLimits";
 export type TaskModalProps = {
   boardId: string;
   task?: TaskInfo;
-  // 新規作成時、未指定なら先頭(一番左)のpositionを既定にする
   positions?: Position[];
+  /**
+   * 新規作成時に選んでおく position。
+   * 「＋」は各列にあるので、押した列を既定にする（未指定なら先頭の列）。
+   */
+  defaultPositionId?: string;
   categories?: Category[];
   members?: Member[];
   // 保存(idが既存なら更新、無ければ追加のupsert)
@@ -30,6 +34,7 @@ const TaskModal = ({
   boardId,
   task,
   positions,
+  defaultPositionId,
   categories,
   members,
   onSaveTask,
@@ -45,9 +50,9 @@ const TaskModal = ({
       comment: "",
       importance: 0,
       categoryId: "",
-      positionId: positions?.[0]?.id ?? "",
+      // 押された「＋」の列。無ければ先頭の列。
+      positionId: defaultPositionId ?? positions?.[0]?.id ?? "",
       assigneeId: "",
-      // 実際の値は保存時に「作成先カラムの末尾」として採番される
     },
   );
 
