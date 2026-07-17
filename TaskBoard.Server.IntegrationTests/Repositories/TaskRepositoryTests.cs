@@ -299,6 +299,37 @@ namespace TaskBoard.Server.IntegrationTests.Repositories
             Assert.Null(task!.AssigneeId);
         }
 
+        /// <summary>
+        /// ゴミ箱は「捨てたばかりのものが一番上」。誤って消した直後に開くので、
+        /// 探さずに見つかる並びにする（order_index ではなく捨てた時刻の降順）。
+        /// </summary>
+        [SkippableFact]
+        public async Task ゴミ箱は後から捨てたものが上に来る()
+        {
+            RequireDocker();
+            using var connection = await Fixture.OpenConnectionAsync();
+            var world = await SeedWorldAsync(connection);
+            var repository = new TaskRepository(connection);
+
+            var (first, second, third) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+            await SeedColumnAsync(connection, repository, world,
+                [(first, 0), (second, 1), (third, 2)]);
+
+            // 捨てる順番: first → second → third
+            foreach (var id in new[] { first, second, third })
+            {
+                Assert.True(await repository.DeleteAsync(id, Owner));
+                // deleted_at は now()。同一トランザクション外でも時刻が並ぶよう少し待つ。
+                await Task.Delay(10);
+            }
+
+            var trash = (await repository.GetTrashByBoardIdAsync(world.OwnerBoard, Owner))
+                .Select(t => t.Id).ToList();
+
+            // 最後に捨てた third が先頭。
+            Assert.Equal([third, second, first], trash);
+        }
+
         // ---- 移動（order_index の採番はサーバーが持つ） ----
 
         [SkippableFact]
