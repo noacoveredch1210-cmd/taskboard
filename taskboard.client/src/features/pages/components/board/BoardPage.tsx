@@ -1,17 +1,15 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
   PointerSensor,
-  pointerWithin,
-  rectIntersection,
   useSensor,
   useSensors,
-  type CollisionDetection,
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
+import { collisionDetection } from "./dndCollision";
 import Search from "./Search";
 import Sort, { type SortKey } from "./Sort";
 import Filter, { type FilterType } from "./Filter";
@@ -24,24 +22,11 @@ import {
   buildColumns,
   flattenColumns,
   buildNextTasks,
+  buildDragOverTasks,
 } from "./boardLogic";
 import type { BoardInfo } from "../../../../types/boardInfo";
 import type { TaskInfo } from "../../../../types/taskInfo";
 import type { Category } from "../../../../types/category";
-
-// ドロップ先はポインタ位置で判定する。
-// closestCorners だと縦長のコンテナ矩形は四隅がカードから遠く、元カラムのカードが
-// 常に勝ってしまうため、空カラムへ移動できない。
-// カードとコンテナが同時に当たったときはカード(＝挿入位置が決まる方)を優先し、
-// カードの無い余白ではコンテナ(＝末尾へ追加)を採用する。
-const collisionDetection: CollisionDetection = (args) => {
-  const pointer = pointerWithin(args);
-  const collisions = pointer.length > 0 ? pointer : rectIntersection(args);
-  const onTask = collisions.filter(
-    (c) => !String(c.id).startsWith(COLUMN_PREFIX),
-  );
-  return onTask.length > 0 ? onTask : collisions;
-};
 
 type Props = {
   boardInfo: BoardInfo;
@@ -142,77 +127,87 @@ const BoardPage = ({
     setFilterValue(""); // 種類を変えたら値をリセット
   };
 
-  // #region 絞り込み条件に合うか
-  const matchesFilter = (t: TaskInfo): boolean => {
-    // 種類か値が未選択なら全部表示
-    if (!filterType || !filterValue) return true;
-    switch (filterType) {
-      case "deadline": {
-        // 選択日「まで」(その日以前)の期限を持つタスク。期限未設定は除外
-        const d = t.deadline?.toISOString().split("T")[0];
-        return d !== undefined && d <= filterValue;
+  // #region tasksを絞り込み・並べ替えて positionId(コンテナ)ごとにまとめる
+  // 結果は useMemo で保持する。ここで毎回新しい配列を作ると、Container が
+  // SortableContext に渡す items の参照も毎回変わり、dnd-kit が items を
+  // 作り直して全カードが再描画される（dnd-kit は items を安定させることを求める）。
+  const grouped = useMemo(() => {
+    // 絞り込み条件に合うか
+    const matchesFilter = (t: TaskInfo): boolean => {
+      // 種類か値が未選択なら全部表示
+      if (!filterType || !filterValue) return true;
+      switch (filterType) {
+        case "deadline": {
+          // 選択日「まで」(その日以前)の期限を持つタスク。期限未設定は除外
+          const d = t.deadline?.toISOString().split("T")[0];
+          return d !== undefined && d <= filterValue;
+        }
+        case "importance":
+          return t.importance === Number(filterValue);
+        case "category":
+          return t.categoryId === filterValue;
+        default:
+          return true;
       }
-      case "importance":
-        return t.importance === Number(filterValue);
-      case "category":
-        return t.categoryId === filterValue;
-      default:
-        return true;
-    }
-  };
-  // #endregion
+    };
 
-  // #region 検索キーワードに合うか(タスク名・コメントの部分一致)
-  const matchesSearch = (t: TaskInfo): boolean => {
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) return true;
-    return (
-      t.name.toLowerCase().includes(query) ||
-      t.comment.toLowerCase().includes(query)
-    );
-  };
-  // #endregion
+    // 検索キーワードに合うか(タスク名・コメントの部分一致)
+    const matchesSearch = (t: TaskInfo): boolean => {
+      const query = searchQuery.trim().toLowerCase();
+      if (!query) return true;
+      return (
+        t.name.toLowerCase().includes(query) ||
+        t.comment.toLowerCase().includes(query)
+      );
+    };
 
-  // #region tasksを絞り込んでpositionId(コンテナ)ごとにまとめる
-  const grouped = boardInfo.tasks
-    ?.filter(matchesFilter)
-    .filter(matchesSearch)
-    .reduce<Record<string, TaskInfo[]>>((acc, item) => {
-      (acc[item.positionId] ??= []).push(item);
-      return acc;
-    }, {});
-  // #endregion
+    const categoryName = (t: TaskInfo) =>
+      categories.find((c) => c.id === t.categoryId)?.name ?? "";
 
-  // #region 選択された並び順でコンテナ内を表示ソートする
-  const categoryName = (t: TaskInfo) =>
-    categories.find((c) => c.id === t.categoryId)?.name ?? "";
-
-  const compareTasks = (a: TaskInfo, b: TaskInfo): number => {
-    switch (sortKey) {
-      case "deadline-asc":
-      case "deadline-desc": {
-        const da = a.deadline?.getTime();
-        const db = b.deadline?.getTime();
-        // 期限未設定は常に末尾へ
-        if (da === undefined && db === undefined) return 0;
-        if (da === undefined) return 1;
-        if (db === undefined) return -1;
-        return sortKey === "deadline-asc" ? da - db : db - da;
+    // 選択された並び順でコンテナ内を表示ソートする
+    const compareTasks = (a: TaskInfo, b: TaskInfo): number => {
+      switch (sortKey) {
+        case "deadline-asc":
+        case "deadline-desc": {
+          const da = a.deadline?.getTime();
+          const db = b.deadline?.getTime();
+          // 期限未設定は常に末尾へ
+          if (da === undefined && db === undefined) return 0;
+          if (da === undefined) return 1;
+          if (db === undefined) return -1;
+          return sortKey === "deadline-asc" ? da - db : db - da;
+        }
+        case "importance-desc":
+          return b.importance - a.importance;
+        case "importance-asc":
+          return a.importance - b.importance;
+        case "category":
+          return categoryName(a).localeCompare(categoryName(b), "ja");
+        default:
+          return 0;
       }
-      case "importance-desc":
-        return b.importance - a.importance;
-      case "importance-asc":
-        return a.importance - b.importance;
-      case "category":
-        return categoryName(a).localeCompare(categoryName(b), "ja");
-      default:
-        return 0;
-    }
-  };
+    };
 
-  if (sortKey && grouped) {
-    Object.values(grouped).forEach((column) => column.sort(compareTasks));
-  }
+    const result = boardInfo.tasks
+      ?.filter(matchesFilter)
+      .filter(matchesSearch)
+      .reduce<Record<string, TaskInfo[]>>((acc, item) => {
+        (acc[item.positionId] ??= []).push(item);
+        return acc;
+      }, {});
+
+    if (sortKey && result) {
+      Object.values(result).forEach((column) => column.sort(compareTasks));
+    }
+    return result;
+  }, [
+    boardInfo.tasks,
+    categories,
+    filterType,
+    filterValue,
+    searchQuery,
+    sortKey,
+  ]);
   // #endregion
 
   // ドラッグ中のカードに表示するカテゴリ・担当者(未設定なら undefined)
@@ -245,13 +240,15 @@ const BoardPage = ({
     tasksBeforeDragRef.current = boardInfo.tasks ?? [];
   };
 
-  // ドラッグ中はカーソル位置にライブ追従(元は詰まり、移動先のカーソル位置に空く)。
-  // 同一コンテナ内・コンテナ間どちらもここで反映し、確定はdragEndで行う。
+  // ドラッグ中は「別のカラムへ移した」ことだけをライブに反映する。
+  // 同じカラム内のすき間は SortableContext の transform が出すので state は動かさない
+  // （動かすと判定が振動して更新が止まらなくなる。buildDragOverTasks の説明を参照）。
+  // 並びの確定は dragEnd で行う。
   const handleDragOver = (event: DragOverEvent) => {
     const resolved = resolveOver(event);
     if (!resolved) return;
 
-    const next = buildNextTasks(
+    const next = buildDragOverTasks(
       boardInfo.tasks ?? [],
       positionIds,
       String(event.active.id),

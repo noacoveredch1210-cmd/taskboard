@@ -27,6 +27,16 @@ if (!HTMLDialogElement.prototype.close) {
 // 呼ばれるため、no-op に差し替えてテスト出力のノイズを消す。
 window.scrollTo = () => {};
 
+// jsdom は ResizeObserver を実装していない。パネル幅の可変機能
+// (react-resizable-panels) がマウント時に new するため、無いと Layout の描画が
+// 落ちる。jsdom はレイアウトを計算しないので観測しないスタブで十分。
+class ResizeObserverStub implements ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+globalThis.ResizeObserver ??= ResizeObserverStub;
+
 afterEach(() => {
   cleanup();
 });

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
 import Task from "./Task";
@@ -62,6 +62,11 @@ const Container = ({
 }: Props) => {
   // 空コンテナにもドロップできるよう、コンテナ自体をドロップ領域にする
   const { setNodeRef } = useDroppable({ id: columnId });
+
+  // dnd-kit は SortableContext の items を安定させることを求める。
+  // 毎回新しい配列を渡すと items が作り直され、全カードが再描画される。
+  // tasks 自体は BoardPage 側が useMemo で保持している。
+  const taskIds = useMemo(() => tasks.map((task) => task.id), [tasks]);
 
   // タスク新規作成管理
   const [openTaskModal, setOpenTaskModal] = useState(false);
@@ -170,10 +175,7 @@ const Container = ({
           />
         )}
       </div>
-      <SortableContext
-        items={tasks.map((task) => task.id)}
-        strategy={rectSortingStrategy}
-      >
+      <SortableContext items={taskIds} strategy={rectSortingStrategy}>
         {/* min-h-0 が無いと flex アイテムは内容の高さを下回れず、コンテナが伸びてしまう */}
         <div
           ref={setNodeRef}

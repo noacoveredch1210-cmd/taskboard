@@ -5,6 +5,7 @@ import {
   buildColumns,
   flattenColumns,
   buildNextTasks,
+  buildDragOverTasks,
 } from "./boardLogic";
 import type { TaskInfo } from "../../../../types/taskInfo";
 
@@ -68,45 +69,25 @@ describe("resolveDrop", () => {
     expect(drop?.placeAfter).toBe(false);
   });
 
-  // コンテナが複数列のグリッドに折り返る場合、同じ行内のカードは top がほぼ同じになる。
-  // left/width がある時はそちらで前後を判定する（無ければ縦方向のみで判定する既存の挙動を維持）。
-  describe("複数列グリッド（同じ行内の左右判定）", () => {
-    it("同じ行で対象より右にあれば後ろに挿入（placeAfter=true）", () => {
+  // 掴んだカードは対象カードの真上に重なって動くため、矩形の重なりでは
+  // 「隣に並んでいる」のか「重なっているだけ」なのか区別できない。
+  // 前後は縦方向の中心だけで決める（1 列でもグリッドでも同じ規則）。
+  describe("重なっているカードの前後判定", () => {
+    it("1 列で対象カードの下半分に重ねたら後ろに挿入（placeAfter=true）", () => {
       const drop = resolveDrop(
         "b",
-        { top: 100, height: 20, left: 0, width: 140 }, // 中心x=70
-        { top: 100, height: 20, left: 200, width: 140 }, // 中心x=270 > 70
+        { top: 200, height: 100 }, // over: 中心y=250
+        { top: 250, height: 100 }, // active: 中心y=300 > 250
         tasks,
       );
       expect(drop?.placeAfter).toBe(true);
     });
 
-    it("同じ行で対象より左にあれば前に挿入（placeAfter=false）", () => {
+    it("1 列で対象カードの上半分に重ねたら前に挿入（placeAfter=false）", () => {
       const drop = resolveDrop(
         "b",
-        { top: 100, height: 20, left: 200, width: 140 }, // 中心x=270
-        { top: 100, height: 20, left: 0, width: 140 }, // 中心x=70 < 270
-        tasks,
-      );
-      expect(drop?.placeAfter).toBe(false);
-    });
-
-    it("行が違えば left/width があっても縦方向で判定する", () => {
-      // active は over より下の行(top大)にあるが、横位置は over よりずっと左
-      const drop = resolveDrop(
-        "b",
-        { top: 100, height: 20, left: 400, width: 140 }, // 中心y=110
-        { top: 300, height: 20, left: 0, width: 140 }, // 中心y=310 > 110 → 後ろ
-        tasks,
-      );
-      expect(drop?.placeAfter).toBe(true);
-    });
-
-    it("片方にしか left/width が無ければ縦方向のみで判定する（クラッシュしない）", () => {
-      const drop = resolveDrop(
-        "b",
-        { top: 100, height: 20, left: 0, width: 140 }, // 中心y=110
-        { top: 0, height: 20 }, // 中心y=10 < 110 → 前
+        { top: 200, height: 100 }, // over: 中心y=250
+        { top: 150, height: 100 }, // active: 中心y=200 < 250
         tasks,
       );
       expect(drop?.placeAfter).toBe(false);
@@ -135,10 +116,46 @@ describe("buildNextTasks", () => {
     expect(next?.find((x) => x.id === "a")?.positionId).toBe("p2");
   });
 
-  it("同一コンテナ内で対象の後ろへ入れる（placeAfter=true）", () => {
-    // a を b の後ろへ → [b, a]
-    const next = buildNextTasks(base, posIds, "a", "p1", "b", true);
+  // 同じカラム内は座標（placeAfter）を見ず、移動方向で決める。
+  it("同じカラムで下へ動かすと、対象カードの場所を奪う", () => {
+    // a を b へ重ねる（下へ移動）→ [b, a]
+    const next = buildNextTasks(base, posIds, "a", "p1", "b", false);
     expect(ids(next)).toEqual(["b", "a", "c"]);
+  });
+
+  it("同じカラムで上へ動かすと、対象カードの場所を奪う", () => {
+    // b を a へ重ねる（上へ移動）→ [b, a]
+    const next = buildNextTasks(base, posIds, "b", "p1", "a", false);
+    expect(ids(next)).toEqual(["b", "a", "c"]);
+  });
+
+  // 横に並んだカードへ左右から重ねると縦の中心がほぼ一致し、placeAfter は
+  // 数 px のぶれで反転する。同じカラム内ではそれに影響されてはいけない。
+  it("同じカラム内では placeAfter がどちらでも結果が変わらない", () => {
+    expect(ids(buildNextTasks(base, posIds, "b", "p1", "a", true))).toEqual([
+      "b",
+      "a",
+      "c",
+    ]);
+    expect(ids(buildNextTasks(base, posIds, "b", "p1", "a", false))).toEqual([
+      "b",
+      "a",
+      "c",
+    ]);
+  });
+
+  it("別カラムへ移すときは placeAfter で前後が決まる", () => {
+    // c(p2) を p1 の b の後ろ / 前へ
+    expect(ids(buildNextTasks(base, posIds, "c", "p1", "b", true))).toEqual([
+      "a",
+      "b",
+      "c",
+    ]);
+    expect(ids(buildNextTasks(base, posIds, "c", "p1", "b", false))).toEqual([
+      "a",
+      "c",
+      "b",
+    ]);
   });
 
   it("空コンテナ(コンテナ自体)へ移動できる（overTaskId=null）", () => {
@@ -153,11 +170,39 @@ describe("buildNextTasks", () => {
   });
 
   it("元の位置と同じ結果になる移動は null（ちらつき防止）", () => {
-    // a を b の前(=現在位置)へ → [a, b] のまま
-    expect(buildNextTasks(base, posIds, "a", "p1", "b", false)).toBeNull();
+    // p2 に 1 枚だけの c を、その p2 の余白へ運んでも並びは変わらない
+    expect(buildNextTasks(base, posIds, "c", "p2", null, false)).toBeNull();
   });
 
   it("存在しない activeId は null", () => {
     expect(buildNextTasks(base, posIds, "zzz", "p1", null, false)).toBeNull();
+  });
+});
+
+// dragOver は「更新 → 再計測 → 再判定」で同じカーソル位置のまま何度も走る。
+// 同じ入力を与えたら 2 回目は必ず「変化なし」にならないと、更新が止まらず
+// React が Maximum update depth exceeded で落ちる（画面が真っ白になる）。
+describe("buildDragOverTasks（ドラッグ中の反映は繰り返しても収束する）", () => {
+  const oneCol = [t("a", "p1"), t("b", "p1"), t("c", "p1")];
+
+  it("同じカラム内では動かさない（確定は dragEnd）", () => {
+    expect(buildDragOverTasks(oneCol, posIds, "c", "p1", "a", false)).toBeNull();
+  });
+
+  it("別カラムへ移したあと、同じ判定を繰り返しても変化しない", () => {
+    const base2 = [t("a", "p1"), t("b", "p1"), t("c", "p2")];
+    // c を p1 の a の上へ（別カラム → 反映する）
+    const first = buildDragOverTasks(base2, posIds, "c", "p1", "a", false);
+    expect(ids(first)).toEqual(["c", "a", "b"]);
+    // 同じカーソル位置のまま 2 回目。ここで動くと振動する。
+    expect(buildDragOverTasks(first!, posIds, "c", "p1", "a", false)).toBeNull();
+  });
+
+  it("空カラムへ移したあと、同じ判定を繰り返しても変化しない", () => {
+    const base2 = [t("a", "p1"), t("b", "p1")];
+    const first = buildDragOverTasks(base2, posIds, "b", "p2", null, false);
+    expect(ids(first)).toEqual(["a", "b"]);
+    expect(first?.find((x) => x.id === "b")?.positionId).toBe("p2");
+    expect(buildDragOverTasks(first!, posIds, "b", "p2", null, false)).toBeNull();
   });
 });

@@ -26,6 +26,12 @@ export type ApiState = {
     orderIndex: number;
   }[];
   categories: { id: string; name: string; color: string }[];
+  members: {
+    userId: string;
+    name: string;
+    email: string;
+    role: "owner" | "member";
+  }[];
 };
 
 /** 記録された更新系リクエスト（テストから検証する） */
@@ -47,6 +53,7 @@ export const POS_TODO = "20000000-0000-4000-8000-000000000001";
 export const POS_DONE = "20000000-0000-4000-8000-000000000002";
 export const TASK_A = "30000000-0000-4000-8000-00000000000a";
 export const TASK_B = "30000000-0000-4000-8000-00000000000b";
+export const TASK_C = "30000000-0000-4000-8000-00000000000c";
 
 /** タスク 2 件（どちらも Todo 列）を持つボード 1 枚。 */
 export const defaultState = (): ApiState => ({
@@ -82,6 +89,15 @@ export const defaultState = (): ApiState => ({
     },
   ],
   categories: [],
+  // ボードを開くと担当者アバターのためにメンバーを取る（自分 1 人＝オーナー）。
+  members: [
+    {
+      userId: TEST_USER.id,
+      name: TEST_USER.name,
+      email: TEST_USER.email,
+      role: "owner",
+    },
+  ],
 });
 
 type Options = {
@@ -145,6 +161,9 @@ export const stubApi = async (
         return json(route, { name: TEST_USER.name, email: TEST_USER.email });
       }
       if (path === "/boards") return json(route, state.boards);
+      if (/^\/boards\/[^/]+\/members$/.test(path)) {
+        return json(route, state.members);
+      }
       if (path === "/categories") return json(route, state.categories);
       if (path === "/positions") {
         const boardId = url.searchParams.get("boardId");

@@ -6,16 +6,10 @@ import type { TaskInfo } from "../../../../types/taskInfo";
 // コンテナ(ドロップ領域)のid。タスクid(UUID)と区別するため接頭辞を付ける
 export const COLUMN_PREFIX = "col-";
 
-/**
- * 位置比較に使う矩形。top/height は必須、left/width は任意。
- * コンテナが複数列(グリッド)に折り返ることがあるため、横方向の情報が
- * あれば同じ行内での左右判定にも使う（無ければ縦方向だけで判定する）。
- */
+/** 位置比較に使う矩形（縦方向だけ見る）。 */
 export type DragRect = {
   top: number;
   height: number;
-  left?: number;
-  width?: number;
 };
 
 /** ドロップ解決の結果 */
@@ -25,34 +19,24 @@ export type Drop = {
   placeAfter: boolean;
 };
 
-/** 2つの矩形が縦方向に重なっているか(=グリッドの同じ行にあるとみなせるか) */
-const overlapsVertically = (a: DragRect, b: DragRect): boolean =>
-  a.top < b.top + b.height && b.top < a.top + a.height;
-
 /**
- * ドラッグ中の矩形が対象カードの「後ろ半分」にあるかを判定する。
- * 左右(left/width)の情報が両方そろっていて、かつ縦方向に重なっている
- * (=複数列グリッドで同じ行にある)ときは横方向の中心で判定し、
- * それ以外は縦方向の中心で判定する。
+ * ドラッグ中の矩形が対象カードの「後ろ半分」にあるかを、縦方向の中心だけで判定する。
+ *
+ * 横方向は見ない。掴んだカードは対象カードの真上に重なって動くため、
+ * 1 列レイアウト（既定）でもグリッドでも両者の矩形はほぼ同じ位置になり、
+ * 「隣に並んでいるのか、単に重なっているのか」を矩形だけでは区別できない。
+ * 以前は縦に重なっていれば横で判定していたが、1 列では中心 X が一致するため
+ * placeAfter が常に false になり、カードを下方向へ移動できなかった。
+ *
+ * この判定はカーソル位置だけで決まる（現在の並び順に依存しない）ので、
+ * dragOver でライブに並べ替えても結果が振動しない。
+ * 複数列グリッドでも、対象カードの上半分＝前・下半分＝後ろで挿入先を選べる。
  */
 const computePlaceAfter = (
   activeRect: DragRect | null,
   overRect: DragRect | null,
 ): boolean => {
   if (!activeRect || !overRect) return false;
-
-  const sameRow =
-    activeRect.left !== undefined &&
-    activeRect.width !== undefined &&
-    overRect.left !== undefined &&
-    overRect.width !== undefined &&
-    overlapsVertically(activeRect, overRect);
-
-  if (sameRow) {
-    const activeCenterX = activeRect.left! + activeRect.width! / 2;
-    const overCenterX = overRect.left! + overRect.width! / 2;
-    return activeCenterX > overCenterX;
-  }
 
   const activeCenterY = activeRect.top + activeRect.height / 2;
   const overCenterY = overRect.top + overRect.height / 2;
@@ -86,10 +70,7 @@ export const resolveDrop = (
   const overTask = tasks.find((t) => t.id === overTaskId);
   if (!overTask) return null;
 
-  // ポインタ(ドラッグ中の中心)がカードの後ろ半分なら、そのカードの後ろに入れる。
-  // コンテナが複数列に折り返っている場合、縦方向だけでは同じ行内の左右が
-  // 判定できない（列が variable width なタスクカードグリッドのため）。
-  // 左右の矩形情報があり、かつ縦方向に重なっている(=同じ行)ときは横方向で判定する。
+  // ドラッグ中のカードの中心が対象カードの下半分にあれば、そのカードの後ろに入れる。
   const placeAfter = computePlaceAfter(activeRect, overRect);
 
   return { destPosId: overTask.positionId, overTaskId, placeAfter };
@@ -113,8 +94,49 @@ export const flattenColumns = (
 ): TaskInfo[] => positionIds.flatMap((id) => columns.get(id) ?? []);
 
 /**
- * 並べ替え後のタスク配列を計算する。
+ * ドラッグ中（dragOver）に画面へ反映する並びを計算する。確定は dragEnd。
+ *
+ * 同じカラム内の並べ替えはここでは反映しない。すき間の見た目は
+ * SortableContext（rectSortingStrategy）の transform が出すので不要なうえ、
+ * 反映すると壊れるため:
+ *   dragOver は「state 更新 → 再計測 → 再判定」で、カーソルを止めていても
+ *   繰り返し走る。同じカラム内の規則は「掴んだカードの現在位置」に依存する
+ *   （＝冪等でない）ので、[a,b,c] の c を a の上へ運ぶと
+ *   [c,a,b] → 次は c が a より前なので「下へ移動」と解釈して [a,c,b] →
+ *   また [c,a,b] … と往復し、更新が止まらず React が
+ *   Maximum update depth exceeded で落ちる（画面が真っ白になる）。
+ *
+ * 別カラムへの移動だけは反映する。移動後は「同じカラム」になって
+ * ここで打ち切られるため、繰り返しても収束する。
+ */
+export const buildDragOverTasks = (
+  tasks: TaskInfo[],
+  positionIds: string[],
+  activeId: string,
+  destPosId: string,
+  overTaskId: string | null,
+  placeAfter: boolean,
+): TaskInfo[] | null => {
+  const draggedTask = tasks.find((t) => t.id === activeId);
+  if (!draggedTask) return null;
+  if (draggedTask.positionId === destPosId) return null;
+  return buildNextTasks(
+    tasks,
+    positionIds,
+    activeId,
+    destPosId,
+    overTaskId,
+    placeAfter,
+  );
+};
+
+/**
+ * 並べ替え後のタスク配列を計算する（dragEnd での確定用）。
  * 並びも position も変わらなければ null（再レンダリングのちらつき防止）。
+ *
+ * placeAfter は「別のカラムへ移すとき」だけ使う。同じカラム内では
+ * 掴んだカードが対象カードの場所を奪う（＝ arrayMove と同じ）規則にする。
+ * この規則は掴んだカードの現在位置に依存するので、ドロップ時に一度だけ使う。
  */
 export const buildNextTasks = (
   tasks: TaskInfo[],
@@ -148,7 +170,19 @@ export const buildNextTasks = (
     toIndex = fromIndex;
   } else {
     const i = dest.findIndex((t) => t.id === overTaskId);
-    toIndex = i === -1 ? dest.length : i + (placeAfter ? 1 : 0);
+    if (i === -1) {
+      toIndex = dest.length;
+    } else if (draggedTask.positionId === destPosId) {
+      // 同じカラム内は、掴んだカードが対象カードの場所を奪う（＝ arrayMove）。
+      // 座標で前後を決めない: カードは等幅・等高のグリッドに並ぶので、横に並んだ
+      // カードへ左右から重ねると縦の中心がほぼ一致し、数 px のぶれで前後が反転する
+      // （＝真ん中へ運んでも元の位置に戻る）。移動方向なら座標に頼らず決まる。
+      // i >= fromIndex は「後ろへ動かしている」。対象の後ろへ回り込ませる。
+      toIndex = i + (i >= fromIndex ? 1 : 0);
+    } else {
+      // 別カラムへ移すときは掴んだカードの位置が無いので、座標で前後を決める。
+      toIndex = i + (placeAfter ? 1 : 0);
+    }
   }
 
   // positionId を更新して挿入
