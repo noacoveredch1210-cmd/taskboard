@@ -110,9 +110,9 @@ describe("buildNextTasks", () => {
   // 初期配置: p1=[a,b], p2=[c]
   const base = [t("a", "p1"), t("b", "p1"), t("c", "p2")];
 
-  it("別コンテナの末尾へ移動し positionId を更新する", () => {
+  it("別コンテナの先頭へ移動し positionId を更新する", () => {
     const next = buildNextTasks(base, posIds, "a", "p2", null, false);
-    expect(ids(next)).toEqual(["b", "c", "a"]);
+    expect(ids(next)).toEqual(["b", "a", "c"]);
     expect(next?.find((x) => x.id === "a")?.positionId).toBe("p2");
   });
 
@@ -158,10 +158,10 @@ describe("buildNextTasks", () => {
     ]);
   });
 
-  it("空コンテナ(コンテナ自体)へ移動できる（overTaskId=null）", () => {
-    // c を p1 の末尾へ
+  it("コンテナの余白へ落とすと先頭に入る（overTaskId=null）", () => {
+    // c を p1 の先頭へ
     const next = buildNextTasks(base, posIds, "c", "p1", null, false);
-    expect(ids(next)).toEqual(["a", "b", "c"]);
+    expect(ids(next)).toEqual(["c", "a", "b"]);
     expect(next?.find((x) => x.id === "c")?.positionId).toBe("p1");
   });
 

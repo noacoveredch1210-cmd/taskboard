@@ -87,16 +87,18 @@ export const useBoards = () => {
       return;
     }
 
-    // 新規: 作成先カラムの末尾に来るよう order_index を採番する
+    // 新規: 作成先カラムの先頭に来るよう order_index を採番する。
+    // サーバーは order_index の昇順で返すので、最小値より小さい値を振る。
     const columnTasks = tasks.filter((t) => t.positionId === task.positionId);
     const orderIndex = columnTasks.length
-      ? Math.max(...columnTasks.map((t) => t.orderIndex)) + 1
+      ? Math.min(...columnTasks.map((t) => t.orderIndex)) - 1
       : 0;
     const newTask: TaskInfo = { ...task, orderIndex };
 
+    // 表示順は配列順なので、state でも先頭へ入れる（再取得を待たずに先頭へ出す）
     setBoards((prev) =>
       prev.map((b) =>
-        b.id !== boardId ? b : { ...b, tasks: [...(b.tasks ?? []), newTask] },
+        b.id !== boardId ? b : { ...b, tasks: [newTask, ...(b.tasks ?? [])] },
       ),
     );
     tasksApi

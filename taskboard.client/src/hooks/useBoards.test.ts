@@ -147,14 +147,14 @@ describe("初回ロード", () => {
 });
 
 describe("saveTask", () => {
-  it("新規タスクは同じ列の末尾の orderIndex + 1 で作成する", async () => {
+  it("新規タスクは同じ列の先頭の orderIndex - 1 で作成する", async () => {
     const { result } = await renderLoaded([
       board({
         tasks: [
           task({ id: "t1", positionId: "pos-1", orderIndex: 0 }),
           task({ id: "t2", positionId: "pos-1", orderIndex: 5 }),
           // 別の列は採番に影響しない
-          task({ id: "t3", positionId: "pos-2", orderIndex: 99 }),
+          task({ id: "t3", positionId: "pos-2", orderIndex: -99 }),
         ],
       }),
     ]);
@@ -167,11 +167,32 @@ describe("saveTask", () => {
     expect(mocks.createTask.mock.calls[0][0]).toMatchObject({
       id: "new",
       boardId: "board-1",
-      orderIndex: 6,
+      orderIndex: -1,
     });
     expect(
       result.current.boards[0].tasks?.find((t) => t.id === "new")?.orderIndex,
-    ).toBe(6);
+    ).toBe(-1);
+  });
+
+  it("新規タスクは表示順でも先頭に来る（配列の先頭へ入れる）", async () => {
+    const { result } = await renderLoaded([
+      board({
+        tasks: [
+          task({ id: "t1", positionId: "pos-1", orderIndex: 0 }),
+          task({ id: "t2", positionId: "pos-1", orderIndex: 1 }),
+        ],
+      }),
+    ]);
+
+    act(() => {
+      result.current.saveTask("board-1", task({ id: "new", name: "新規" }));
+    });
+
+    // 表示順は配列順なので、同じ列の並びで先頭に居ること
+    const inColumn = result.current.boards[0].tasks
+      ?.filter((t) => t.positionId === "pos-1")
+      .map((t) => t.id);
+    expect(inColumn).toEqual(["new", "t1", "t2"]);
   });
 
   it("空の列に追加するときは orderIndex 0 で作成する", async () => {

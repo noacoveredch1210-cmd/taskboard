@@ -45,7 +45,7 @@ const computePlaceAfter = (
 
 /**
  * ドロップ先(position・対象タスク・後ろに入れるか)を解決する。
- * over がコンテナ自体なら末尾追加、タスク上ならそのタスクと同じ position。
+ * over がコンテナ自体なら先頭へ追加、タスク上ならそのタスクと同じ position。
  * ポインタ(=active の中心)が対象カードの下半分なら後ろに挿入する。
  */
 export const resolveDrop = (
@@ -56,7 +56,7 @@ export const resolveDrop = (
 ): Drop | null => {
   if (overId == null) return null;
 
-  // コンテナ自体の上(空コンテナ等) → 末尾に追加
+  // コンテナ自体の上(空コンテナ等) → 先頭に追加
   if (typeof overId === "string" && overId.startsWith(COLUMN_PREFIX)) {
     return {
       destPosId: overId.slice(COLUMN_PREFIX.length),
@@ -163,8 +163,8 @@ export const buildNextTasks = (
   if (!dest) return null;
   let toIndex: number;
   if (overTaskId === null) {
-    // 空きエリア・コンテナ自体の上 → 末尾
-    toIndex = dest.length;
+    // 空きエリア・コンテナ自体の上 → 先頭（新規タスクの追加先と揃える）
+    toIndex = 0;
   } else if (overTaskId === activeId) {
     // 自分自身の上 → 位置を変えない
     toIndex = fromIndex;
