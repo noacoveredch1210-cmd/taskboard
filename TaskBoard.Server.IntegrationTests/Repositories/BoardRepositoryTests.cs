@@ -91,6 +91,118 @@ namespace TaskBoard.Server.IntegrationTests.Repositories
             Assert.True(await repository.DeleteAsync(boardId, Owner));
         }
 
+        // ---- 列の編集（1 リクエストで追加・改名・並べ替え・削除をまとめて適用する） ----
+
+        [SkippableFact]
+        public async Task Update_は列の追加_改名_並べ替え_削除をまとめて反映する()
+        {
+            RequireDocker();
+            using var connection = await Fixture.OpenConnectionAsync();
+            await SeedUserAsync(connection, Owner, "owner@example.com");
+            var boards = new BoardRepository(connection);
+            var positions = new PositionRepository(connection);
+
+            var boardId = Guid.NewGuid();
+            await boards.CreateAsync(NewBoard(boardId, Owner, "BD"));
+            var (todo, doing, gone) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+            foreach (var (id, name, index) in new[]
+            {
+                (todo, "Todo", 0.0), (doing, "Doing", 1.0), (gone, "消える", 2.0),
+            })
+            {
+                await positions.CreateAsync(new CreatePositionRequest
+                { Id = id, BoardId = boardId, Name = name, OrderIndex = index }, Owner);
+            }
+
+            // Doing を先頭へ、Todo を改名、消えるを削除、新規を末尾へ。
+            var added = Guid.NewGuid();
+            Assert.True(await boards.UpdateAsync(boardId, Owner, new UpdateBoardRequest
+            {
+                ShortName = "BD",
+                Title = "ボード",
+                Positions =
+                [
+                    new BoardPositionRequest { Id = doing, Name = "Doing" },
+                    new BoardPositionRequest { Id = todo, Name = "改名後" },
+                    new BoardPositionRequest { Id = added, Name = "新規" },
+                ],
+            }));
+
+            var result = (await positions.GetByBoardIdAsync(boardId, Owner)).ToList();
+            Assert.Equal([doing, todo, added], result.Select(p => p.Id));
+            Assert.Equal("改名後", result[1].Name);
+        }
+
+        /// <summary>
+        /// 列を消すとタスクは FK の ON DELETE SET NULL で未配置になり、画面から見えなくなる。
+        /// 「退避してから削除」の順序は、同じトランザクションの中だから保証できる。
+        /// </summary>
+        [SkippableFact]
+        public async Task Update_で消えた列にあったタスクは先頭の列へ退避される()
+        {
+            RequireDocker();
+            using var connection = await Fixture.OpenConnectionAsync();
+            await SeedUserAsync(connection, Owner, "owner@example.com");
+            var boards = new BoardRepository(connection);
+            var positions = new PositionRepository(connection);
+            var tasks = new TaskRepository(connection);
+
+            var boardId = Guid.NewGuid();
+            await boards.CreateAsync(NewBoard(boardId, Owner, "BD"));
+            var (keep, gone) = (Guid.NewGuid(), Guid.NewGuid());
+            await positions.CreateAsync(new CreatePositionRequest
+            { Id = keep, BoardId = boardId, Name = "残る", OrderIndex = 0 }, Owner);
+            await positions.CreateAsync(new CreatePositionRequest
+            { Id = gone, BoardId = boardId, Name = "消える", OrderIndex = 1 }, Owner);
+
+            var taskId = Guid.NewGuid();
+            await tasks.CreateAsync(new CreateTaskRequest
+            { Id = taskId, BoardId = boardId, PositionId = gone, Name = "タスク" }, Owner);
+
+            await boards.UpdateAsync(boardId, Owner, new UpdateBoardRequest
+            {
+                ShortName = "BD",
+                Title = "ボード",
+                Positions = [new BoardPositionRequest { Id = keep, Name = "残る" }],
+            });
+
+            var moved = await tasks.GetByIdAsync(taskId, Owner);
+            Assert.Equal(keep, moved!.PositionId); // 未配置(null)にならず、残った列へ移る
+        }
+
+        [SkippableFact]
+        public async Task Update_は他boardの列idを送られても書き換えない()
+        {
+            RequireDocker();
+            using var connection = await Fixture.OpenConnectionAsync();
+            await SeedUserAsync(connection, Owner, "owner@example.com");
+            await SeedUserAsync(connection, Stranger, "stranger@example.com");
+            var boards = new BoardRepository(connection);
+            var positions = new PositionRepository(connection);
+
+            var mine = Guid.NewGuid();
+            var theirs = Guid.NewGuid();
+            await boards.CreateAsync(NewBoard(mine, Owner, "MINE"));
+            await boards.CreateAsync(NewBoard(theirs, Stranger, "THEIRS"));
+
+            var theirPosition = Guid.NewGuid();
+            await positions.CreateAsync(new CreatePositionRequest
+            { Id = theirPosition, BoardId = theirs, Name = "他人の列", OrderIndex = 0 }, Stranger);
+
+            // 自分の board の編集に、他人の board の列 id を混ぜて送る。
+            await boards.UpdateAsync(mine, Owner, new UpdateBoardRequest
+            {
+                ShortName = "MINE",
+                Title = "私のボード",
+                Positions = [new BoardPositionRequest { Id = theirPosition, Name = "乗っ取り" }],
+            });
+
+            // 他人の列は名前も所属も変わらない。
+            var theirResult = (await positions.GetByBoardIdAsync(theirs, Stranger)).ToList();
+            Assert.Single(theirResult);
+            Assert.Equal("他人の列", theirResult[0].Name);
+        }
+
         [SkippableFact]
         public async Task GetById_は他人のboardにはnullを返す()
         {

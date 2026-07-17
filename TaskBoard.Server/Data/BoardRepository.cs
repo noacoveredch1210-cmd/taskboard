@@ -48,9 +48,19 @@ namespace TaskBoard.Server.Data
             await Connection.ExecuteAsync(insertOwner, new { BoardId = request.Id, request.UserId });
         }
 
+        /// <summary>
+        /// ボードの編集（タイトル・略称・列）。オーナーのみ。
+        ///
+        /// 列は「あるべき姿」を丸ごと受け取り、追加・改名・並べ替え・削除をまとめて適用する。
+        /// 1 トランザクションにするのは、これが複数の書き込みに分かれるため。個別のリクエストで
+        /// 投げると、途中で失敗したときに「列は消えたのにタスクの退避は済んでいない」といった
+        /// 中途半端な状態がサーバーに残る。
+        /// </summary>
         public async Task<bool> UpdateAsync(Guid id, Guid userId, UpdateBoardRequest request)
         {
-            // ボードの編集（タイトル・略称）はオーナーのみ。
+            if (Connection.State != ConnectionState.Open) Connection.Open();
+            using var transaction = Connection.BeginTransaction();
+
             const string sql = """
             UPDATE boards
             SET short_name = @ShortName,
@@ -64,8 +74,62 @@ namespace TaskBoard.Server.Data
                 UserId = userId,
                 request.ShortName,
                 request.Title
-            });
-            return affectedRows > 0;
+            }, transaction);
+
+            // 0 件＝存在しないか、オーナーでない。列にも触れずに終わる。
+            if (affectedRows == 0) return false;
+
+            if (request.Positions is not null)
+            {
+                await ApplyPositionsAsync(id, request.Positions, transaction);
+            }
+
+            transaction.Commit();
+            return true;
+        }
+
+        /// <summary>送られてきた列の並びを、そのボードの列に反映する（追加・改名・並べ替え・削除）。</summary>
+        private async Task ApplyPositionsAsync(
+            Guid boardId, List<BoardPositionRequest> positions, IDbTransaction transaction)
+        {
+            // 追加と更新。配列の位置がそのまま order_index になる。
+            // ON CONFLICT の WHERE は、他ボードの列 id を送りつけられても書き換えさせないための鍵。
+            // （id は全ボード共通の PK なので、これが無いと他人の列を改名・並べ替えできてしまう）
+            const string upsertSql = """
+            INSERT INTO positions (id, board_id, name, order_index)
+            VALUES (@Id, @BoardId, @Name, @OrderIndex)
+            ON CONFLICT (id) DO UPDATE
+              SET name = EXCLUDED.name, order_index = EXCLUDED.order_index
+              WHERE positions.board_id = @BoardId
+            """;
+            for (var i = 0; i < positions.Count; i++)
+            {
+                await Connection.ExecuteAsync(upsertSql, new
+                {
+                    positions[i].Id,
+                    BoardId = boardId,
+                    positions[i].Name,
+                    OrderIndex = (double)i
+                }, transaction);
+            }
+
+            var keepIds = positions.Select(p => p.Id).ToArray();
+
+            // 消える列にあったタスクは、先頭の列へ退避してから列を消す。
+            // 先に列を消すと FK の ON DELETE SET NULL で未配置になり、画面から見えなくなる。
+            // この「退避してから削除」の順序は、同じトランザクションの中だから保証できる。
+            var fallbackId = positions.Count > 0 ? positions[0].Id : (Guid?)null;
+            await Connection.ExecuteAsync("""
+            UPDATE tasks SET position_id = @FallbackId
+            WHERE board_id = @BoardId
+              AND position_id IS NOT NULL
+              AND NOT (position_id = ANY(@KeepIds))
+            """, new { BoardId = boardId, FallbackId = fallbackId, KeepIds = keepIds }, transaction);
+
+            await Connection.ExecuteAsync("""
+            DELETE FROM positions
+            WHERE board_id = @BoardId AND NOT (id = ANY(@KeepIds))
+            """, new { BoardId = boardId, KeepIds = keepIds }, transaction);
         }
 
         public async Task<bool> DeleteAsync(Guid id, Guid userId)

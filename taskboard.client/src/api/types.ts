@@ -77,6 +77,12 @@ export type CreateBoardRequest = {
 export type UpdateBoardRequest = {
   shortName: string;
   title: string;
+  /**
+   * 列の「あるべき姿」を丸ごと送る（配列順がそのまま表示順）。
+   * 送らなかった既存の列はサーバーが削除し、そこにあったタスクは先頭の列へ退避される。
+   * 省略すると列には触れない。
+   */
+  positions?: { id: string; name: string }[];
 };
 
 /** 作成。orderIndex は送らない（新規タスクはサーバーがそのカラムの先頭へ入れる）。 */

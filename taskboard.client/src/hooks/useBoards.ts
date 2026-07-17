@@ -107,18 +107,13 @@ export const useBoards = () => {
     const board = boards.find((b) => b.id === id);
     if (!board) return;
 
-    // 消えた position に残るタスクは先頭 position へ退避する
+    // 消えた position に残るタスクは先頭 position へ退避する。
+    // サーバーも同じことを（同じトランザクションの中で）やるが、こちらは表示を
+    // 即座に整えるため。再取得を待つと、タスクが一瞬どこにも属さず消えて見える。
     const validIds = updates.positions
       ? new Set(updates.positions.map((p) => p.id))
       : null;
     const fallbackId = updates.positions?.[0]?.id ?? "";
-
-    // 退避対象を state 更新の前に確定しておく(更新関数内での副作用を避ける)
-    const reassignedTasks: TaskInfo[] = validIds
-      ? (board.tasks ?? [])
-          .filter((task) => !validIds.has(task.positionId))
-          .map((task) => ({ ...task, positionId: fallbackId }))
-      : [];
 
     setBoards((prev) =>
       prev.map((b) => {
@@ -136,46 +131,17 @@ export const useBoards = () => {
     );
 
     // --- API 反映 ---
+    // 列は「あるべき姿」を丸ごと送り、追加・改名・並べ替え・削除・タスクの退避は
+    // サーバーが 1 トランザクションで行う。以前はここから列とタスクへ個別のリクエストを
+    // 並べて投げていたが、途中で失敗すると「列は消えたのにタスクの退避は済んでいない」
+    // といった中途半端な状態がサーバーに残った（順序も await していないので保証が無かった）。
     boardsApi
       .update(id, {
         shortName: updates.shortName ?? board.shortName,
         title: updates.title ?? board.title,
+        positions: updates.positions?.map((p) => ({ id: p.id, name: p.name })),
       })
       .catch(handleFailure("boardの更新に失敗しました", boards));
-
-    if (updates.positions) {
-      const oldIds = new Set(board.positions.map((p) => p.id));
-      const newIds = new Set(updates.positions.map((p) => p.id));
-
-      // 退避したタスクを先に付け替え(position 削除より前。FK 制約対策)
-      reassignedTasks.forEach((task) =>
-        tasksApi
-          .update(task.id, toUpdateTaskRequest(task))
-          .catch(handleFailure("タスクの付け替えに失敗しました", boards)),
-      );
-
-      // 追加 / 名前・並び順の更新
-      updates.positions.forEach((p, index) => {
-        if (oldIds.has(p.id)) {
-          positionsApi
-            .update(p.id, { name: p.name, orderIndex: index })
-            .catch(handleFailure("positionの更新に失敗しました", boards));
-        } else {
-          positionsApi
-            .create({ id: p.id, boardId: id, name: p.name, orderIndex: index })
-            .catch(handleFailure("positionの作成に失敗しました", boards));
-        }
-      });
-
-      // 削除
-      board.positions
-        .filter((p) => !newIds.has(p.id))
-        .forEach((p) =>
-          positionsApi
-            .remove(p.id)
-            .catch(handleFailure("positionの削除に失敗しました", boards)),
-        );
-    }
   };
 
   const createBoard = (

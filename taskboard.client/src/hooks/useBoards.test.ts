@@ -639,17 +639,38 @@ describe("createBoard", () => {
 });
 
 describe("setBoard", () => {
-  it("列を削除するとき、残されたタスクを先頭の列へ退避してから列を削除する", async () => {
-    const callOrder: string[] = [];
-    mocks.updateTask.mockImplementation(() => {
-      callOrder.push("updateTask");
-      return Promise.resolve();
-    });
-    mocks.removePosition.mockImplementation(() => {
-      callOrder.push("removePosition");
-      return Promise.resolve();
+  // 列の追加・改名・並べ替え・削除と、消えた列のタスクの退避は、サーバーが
+  // 1 トランザクションで行う。クライアントは「あるべき姿」を 1 回送るだけ。
+  it("列の変更は 1 リクエストにまとめて送る（配列順がそのまま表示順）", async () => {
+    const { result } = await renderLoaded();
+
+    act(() => {
+      result.current.setBoard("board-1", {
+        positions: [
+          { id: "pos-2", name: "完了" }, // 既存（順序が変わった）
+          { id: "pos-3", name: "レビュー" }, // 新規
+        ],
+      });
     });
 
+    expect(mocks.updateBoard).toHaveBeenCalledTimes(1);
+    expect(mocks.updateBoard).toHaveBeenCalledWith("board-1", {
+      shortName: "B1",
+      title: "ボード1",
+      positions: [
+        { id: "pos-2", name: "完了" },
+        { id: "pos-3", name: "レビュー" },
+      ],
+    });
+
+    // 列やタスクへ個別のリクエストは投げない（中途半端な状態を作らないため）。
+    expect(mocks.updatePosition).not.toHaveBeenCalled();
+    expect(mocks.createPosition).not.toHaveBeenCalled();
+    expect(mocks.removePosition).not.toHaveBeenCalled();
+    expect(mocks.updateTask).not.toHaveBeenCalled();
+  });
+
+  it("消えた列のタスクは、再取得を待たずに先頭の列へ移して見せる", async () => {
     const { result } = await renderLoaded([
       board({
         tasks: [task({ id: "t1", positionId: "pos-2" })],
@@ -663,42 +684,8 @@ describe("setBoard", () => {
       });
     });
 
-    // 外部キー制約を踏まないよう、付け替えが削除より先に走る。
-    expect(callOrder).toEqual(["updateTask", "removePosition"]);
-    expect(mocks.updateTask.mock.calls[0][0]).toBe("t1");
-    expect(mocks.updateTask.mock.calls[0][1]).toMatchObject({
-      positionId: "pos-1",
-    });
-    expect(mocks.removePosition).toHaveBeenCalledWith("pos-2");
-
-    // state 側でもタスクが先頭の列へ移っている。
+    // サーバーも同じ退避をするが、表示が一瞬でも欠けないよう state 側でも移す。
     expect(result.current.boards[0].tasks?.[0].positionId).toBe("pos-1");
-  });
-
-  it("既存の列は更新し、新しい列は作成する", async () => {
-    const { result } = await renderLoaded();
-
-    act(() => {
-      result.current.setBoard("board-1", {
-        positions: [
-          { id: "pos-2", name: "完了" }, // 既存（順序が変わった）
-          { id: "pos-3", name: "レビュー" }, // 新規
-        ],
-      });
-    });
-
-    expect(mocks.updatePosition).toHaveBeenCalledWith("pos-2", {
-      name: "完了",
-      orderIndex: 0,
-    });
-    expect(mocks.createPosition).toHaveBeenCalledWith({
-      id: "pos-3",
-      boardId: "board-1",
-      name: "レビュー",
-      orderIndex: 1,
-    });
-    // 消えた pos-1 は削除される。
-    expect(mocks.removePosition).toHaveBeenCalledWith("pos-1");
   });
 
   it("positions を指定しなければ board のメタ情報だけを更新する", async () => {
