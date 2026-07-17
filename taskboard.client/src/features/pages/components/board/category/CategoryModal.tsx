@@ -38,7 +38,9 @@ const CategoryModal = ({
   // View の外側をクリックしたら選択モードを解除する
   // (モーダル表示中はモーダル操作を優先するので無効)
   useEffect(() => {
-    if (!isSelectMode || openConfirmModal !== null) return;
+    // openConfirmModal は boolean。`!== null` だと常に true になり、
+    // このハンドラが一度も登録されない（＝外側クリックが効かない）。
+    if (!isSelectMode || openConfirmModal) return;
     const handleOutside = (e: MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
         setIsSelectMode(false);
@@ -94,6 +96,7 @@ const CategoryModal = ({
             <div className="p-3 flex flex-col gap-2 flex-1 overflow-y-auto min-h-0">
               {categories.map((category) => (
                 <CategoryCard
+                  key={category.id}
                   category={category}
                   onSetCategory={onSetCategory}
                   isSelectMode={isSelectMode}
