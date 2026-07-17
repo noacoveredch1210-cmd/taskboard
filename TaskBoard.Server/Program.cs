@@ -1,3 +1,5 @@
+using Serilog;
+using Serilog.Formatting.Compact;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.RateLimiting;
@@ -14,6 +16,34 @@ Dapper.SqlMapper.AddTypeHandler(new DateOnlyTypeHandler());
 Dapper.SqlMapper.AddTypeHandler(new NullableDateOnlyTypeHandler());
 
 var builder = WebApplication.CreateBuilder(args);
+
+// 構造化ログ（Serilog）。既定のコンソールロガーと違い、ログを「文字列」ではなく
+// 「名前付きの値を持つイベント」として出す。本番は 1 行 1 JSON で吐くので、
+// ログ基盤側が status や elapsed で検索・集計できる。
+// 相関 ID: Serilog は Activity.Current から TraceId を自動で拾い、JSON の "@tr" に出す。
+// ASP.NET Core がリクエストごとに Activity を張るので、1 リクエスト中のログは
+// 同じ TraceId で串刺しできる。
+// この値は problem+json のエラー応答に載る traceId（W3C traceparent 形式の
+// "00-{TraceId}-{SpanId}-{flags}"）の TraceId 部分と一致する。つまり利用者が
+// 報告したエラーの traceId でログを検索すれば、その要求の記録に辿り着ける。
+builder.Host.UseSerilog((context, configuration) =>
+{
+    configuration
+        .ReadFrom.Configuration(context.Configuration)
+        .Enrich.FromLogContext();
+
+    if (context.HostingEnvironment.IsDevelopment())
+    {
+        // 開発中は人が読める 1 行形式（JSON だと目で追えない）。
+        configuration.WriteTo.Console(
+            outputTemplate:
+            "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} <{TraceId}>{NewLine}{Exception}");
+    }
+    else
+    {
+        configuration.WriteTo.Console(new CompactJsonFormatter());
+    }
+});
 
 // Add services to the container.
 builder.Services.AddControllers();
@@ -180,6 +210,20 @@ else
 {
     app.UseExceptionHandler();
 }
+
+// リクエスト 1 本につき 1 行のまとめログを出す（メソッド・パス・ステータス・所要時間）。
+// ASP.NET Core 既定の逐次ログより静かで、かつ構造化されている。
+// ここに置く理由: 例外処理より内側なので、500 になった要求も「500 として」記録される。
+app.UseSerilogRequestLogging(options =>
+{
+    options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+    {
+        // 誰の要求かを残す。ユーザー ID はトークンの sub のみを信頼する
+        // （リクエスト本文の userId は見ない）方針に合わせる。
+        var sub = httpContext.User.FindFirst("sub")?.Value;
+        if (sub is not null) diagnosticContext.Set("UserId", sub);
+    };
+});
 
 // 本文の無いエラー応答（401 など）にも problem+json の本文を付ける。
 app.UseStatusCodePages();
