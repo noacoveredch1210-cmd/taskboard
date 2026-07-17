@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -6,7 +7,7 @@ using TaskBoard.Server.Models;
 namespace TaskBoard.Server.Services
 {
     /// <summary>
-    /// Google Gemini（無料枠 gemini-2.0-flash）を使った使い方ガイド。
+    /// Google Gemini（無料枠）を使った使い方ガイド。使用モデルは <see cref="Model"/>。
     /// API キーはサーバー側の環境変数 GEMINI_API_KEY にのみ置き、クライアントには出さない。
     /// </summary>
     public class GeminiAssistant : IAiAssistant
@@ -47,10 +48,12 @@ namespace TaskBoard.Server.Services
             """;
 
         private readonly HttpClient _http;
+        private readonly ILogger<GeminiAssistant> _logger;
 
-        public GeminiAssistant(HttpClient http)
+        public GeminiAssistant(HttpClient http, ILogger<GeminiAssistant> logger)
         {
             _http = http;
+            _logger = logger;
         }
 
         public async Task<string> GetReplyAsync(
@@ -84,6 +87,10 @@ namespace TaskBoard.Server.Services
                 },
             };
 
+            // 上流（Gemini）にかかった時間を残す。これが無いと「/api/ai/chat が 3 秒」までは
+            // 分かっても、その内訳が上流なのか自前の処理なのかを切り分けられない。
+            // 同じリクエストのログとは TraceId で繋がる。
+            var stopwatch = Stopwatch.StartNew();
             HttpResponseMessage response;
             try
             {
@@ -97,8 +104,15 @@ namespace TaskBoard.Server.Services
             }
             catch (HttpRequestException ex)
             {
+                _logger.LogWarning(
+                    "Gemini へ接続できませんでした {Model} {ElapsedMs}ms",
+                    Model, stopwatch.ElapsedMilliseconds);
                 throw new AiAssistantException("AI サービスへ接続できませんでした。", ex);
             }
+
+            _logger.LogInformation(
+                "Gemini へ問い合わせました {Model} {StatusCode} {ElapsedMs}ms {MessageCount}件",
+                Model, (int)response.StatusCode, stopwatch.ElapsedMilliseconds, messages.Count);
 
             if (!response.IsSuccessStatusCode)
             {

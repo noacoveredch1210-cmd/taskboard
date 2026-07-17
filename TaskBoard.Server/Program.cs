@@ -90,7 +90,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-builder.Services.AddScoped<IDbConnection>(_ =>
+// Npgsql に ILoggerFactory を渡すと、SQL 1 本ごとに所要時間つきのログを出せる
+// （"Command execution completed (duration={DurationMs}ms)"）。これが無いと
+// 「この要求は 800ms」までは分かっても、その内訳が DB なのか自前の処理なのかを切り分けられない。
+// 既定は静かにしておき（appsettings で Npgsql を Warning に落としている）、
+// 遅い原因を追うときだけ Npgsql の水準を Debug へ上げる。値ではなく水準の切り替えで済む。
+builder.Services.AddSingleton<NpgsqlDataSource>(serviceProvider =>
 {
     var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL")
         ?? throw new InvalidOperationException("DATABASE_URL is not set.");
@@ -108,8 +113,14 @@ builder.Services.AddScoped<IDbConnection>(_ =>
         SslMode = SslMode.Require
     }.ToString();
 
-    return new NpgsqlConnection(connectionString);
+    var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
+    dataSourceBuilder.UseLoggerFactory(serviceProvider.GetRequiredService<ILoggerFactory>());
+    // パラメータの値はログに出さない（既定）。利用者のデータが混ざらないようにする。
+    return dataSourceBuilder.Build();
 });
+
+builder.Services.AddScoped<IDbConnection>(serviceProvider =>
+    serviceProvider.GetRequiredService<NpgsqlDataSource>().CreateConnection());
 
 builder.Services.AddScoped<ITaskRepository, TaskRepository>();
 builder.Services.AddScoped<IBoardRepository, BoardRepository>();

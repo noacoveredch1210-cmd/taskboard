@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Logging.Abstractions;
 using TaskBoard.Server.Models;
 using TaskBoard.Server.Services;
 
@@ -43,10 +44,12 @@ namespace TaskBoard.Server.Tests.Services
         }
 
         private static GeminiAssistant Create(StubHandler handler) =>
-            new(new HttpClient(handler)
-            {
-                BaseAddress = new Uri("https://generativelanguage.googleapis.com/"),
-            });
+            new(
+                new HttpClient(handler)
+                {
+                    BaseAddress = new Uri("https://generativelanguage.googleapis.com/"),
+                },
+                NullLogger<GeminiAssistant>.Instance);
 
         private static readonly List<AiMessage> SampleMessages =
         [
