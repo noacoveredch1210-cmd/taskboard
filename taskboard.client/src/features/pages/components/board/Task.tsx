@@ -78,7 +78,7 @@ const Task = ({
           {...attributes}
           {...listeners}
           data-testid={`task-${task.id}`}
-          className="border rounded flex relative h-35 justify-center group hover:shadow-lg touch-none flex-1 min-w-0"
+          className="cursor-pointer border rounded flex relative h-35 justify-center group hover:shadow-lg touch-none flex-1 min-w-0"
           onClick={() =>
             isSelectMode ? onToggleSelect?.(task.id) : setOpenTaskModal(true)
           }
@@ -96,7 +96,7 @@ const Task = ({
             type="checkbox"
             checked={checked}
             onChange={() => onToggleSelect?.(task.id)}
-            className="w-5 h-5 accent-primary"
+            className="cursor-pointer w-5 h-5 accent-primary"
           ></input>
         )}
       </div>

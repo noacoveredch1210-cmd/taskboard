@@ -11,7 +11,7 @@ type Props = {
 const WelcomeModal = ({ onCreateBoard, onClose }: Props) => {
   return (
     <ModalBase
-      className="p-8 flex flex-col gap-5 w-md max-w-full"
+      className="cursor-default p-8 flex flex-col gap-5 w-md max-w-full"
       onClose={onClose}
     >
       <div className="text-xl font-bold">TaskBoard へようこそ 🎉</div>

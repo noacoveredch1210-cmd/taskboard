@@ -7,7 +7,7 @@ const CreateTaskButton = ({ onClick }: Props) => {
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center hover:bg-gray-200 rounded"
+      className="cursor-pointer flex items-center hover:bg-gray-200 rounded"
     >
       <span className="material-symbols-outlined">add</span>
     </button>

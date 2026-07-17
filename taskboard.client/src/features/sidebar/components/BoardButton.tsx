@@ -13,7 +13,7 @@ const BoardButton = ({
 }: Props) => {
   return (
     <button
-      className={`flex px-3 w-full py-2 hover:bg-[#f5f5f5] hover:text-primary ${isOpen ? "bg-bg-base text-primary" : "text-white"} ${isOpenSidebar ? "" : "justify-center"}`}
+      className={`cursor-pointer flex px-3 w-full py-2 hover:bg-[#f5f5f5] hover:text-primary ${isOpen ? "bg-bg-base text-primary" : "text-white"} ${isOpenSidebar ? "" : "justify-center"}`}
       onClick={openBoard}
     >
       <span className="material-symbols-outlined px-1">list_alt_check</span>

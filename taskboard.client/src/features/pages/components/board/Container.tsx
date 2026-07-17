@@ -149,8 +149,10 @@ const Container = ({
     >
       <div className="flex justify-between items-center">
         <div className="flex gap-3 items-center">
-          <div className="font-medium text-lg">{positionName}</div>
-          <div className="text-sm bg-gray-200 w-10 rounded h-5 flex items-center justify-center">
+          <div className="cursor-default font-medium text-lg">
+            {positionName}
+          </div>
+          <div className="cursor-default text-sm bg-gray-200 w-10 rounded h-5 flex items-center justify-center">
             {taskLength}
           </div>
           {selectable && (

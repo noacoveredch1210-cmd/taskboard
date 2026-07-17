@@ -11,7 +11,7 @@ type Props = {
   onSetCategory?: (categoryId: string, updates: Partial<Category>) => void;
 };
 
-const CreateCategoryModal = ({
+const CustomCategoryModal = ({
   onClose,
   category,
   onCreateCategory,
@@ -36,7 +36,9 @@ const CreateCategoryModal = ({
   return (
     <ModalBase className="p-5" onClose={onClose}>
       <div className="">
-        <div className="font-medium py-1 text-lg">カテゴリーを追加</div>
+        <div className="cursor-default font-medium py-1 text-lg">
+          カテゴリーを追加
+        </div>
         <input
           type="text"
           value={draftName}
@@ -51,7 +53,7 @@ const CreateCategoryModal = ({
         />
       </div>
       <div className="py-2">
-        <div className="font-medium text-lg">テーマ色</div>
+        <div className="cursor-default font-medium text-lg">テーマ色</div>
         <input
           type="color"
           list="color"
@@ -80,7 +82,7 @@ const CreateCategoryModal = ({
             }
             onClose();
           }}
-          className="px-2 rounded font-medium bg-primary-button hover:bg-primary-button-hover"
+          className="cursor-pointer px-2 rounded font-medium bg-primary-button hover:bg-primary-button-hover"
         >
           {category ? "変更" : "追加"}
         </button>
@@ -89,4 +91,4 @@ const CreateCategoryModal = ({
   );
 };
 
-export default CreateCategoryModal;
+export default CustomCategoryModal;

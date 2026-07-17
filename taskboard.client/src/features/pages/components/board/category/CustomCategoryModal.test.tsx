@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import CreateCategoryModal from "./CreateCategoryModal";
+import CustomCategoryModal from "./CustomCategoryModal";
 
 const nameInput = () =>
   screen.getByPlaceholderText("カテゴリー名を入力...") as HTMLInputElement;
@@ -18,7 +18,7 @@ describe("CreateCategoryModal（新規）", () => {
     const onCreateCategory = vi.fn();
     const onClose = vi.fn();
     render(
-      <CreateCategoryModal
+      <CustomCategoryModal
         onCreateCategory={onCreateCategory}
         onClose={onClose}
       />,
@@ -37,7 +37,7 @@ describe("CreateCategoryModal（新規）", () => {
     const onCreateCategory = vi.fn();
     const onClose = vi.fn();
     render(
-      <CreateCategoryModal
+      <CustomCategoryModal
         onCreateCategory={onCreateCategory}
         onClose={onClose}
       />,
@@ -53,7 +53,7 @@ describe("CreateCategoryModal（編集）", () => {
     const onSetCategory = vi.fn();
     const category = { id: "c1", name: "旧名", color: "#ff0000" };
     render(
-      <CreateCategoryModal
+      <CustomCategoryModal
         category={category}
         onSetCategory={onSetCategory}
         onClose={vi.fn()}

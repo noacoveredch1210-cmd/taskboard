@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Category } from "../../../../../types/category";
-import CreateCategoryModal from "./CreateCategoryModal";
+import CustomCategoryModal from "./CustomCategoryModal";
 
 type Props = {
   category: Category;
@@ -24,7 +24,7 @@ const CategoryCard = ({
         onClick={() =>
           isSelectMode ? onToggleSelect(category.id) : setOpenCustomModal(true)
         }
-        className={`px-3 rounded flex gap-2 hover:text-primary`}
+        className={`cursor-pointer px-3 rounded flex gap-2 hover:text-primary`}
       >
         <span
           style={{
@@ -36,7 +36,7 @@ const CategoryCard = ({
         {category.name}
       </button>
       {openCustomModal && (
-        <CreateCategoryModal
+        <CustomCategoryModal
           onClose={() => setOpenCustomModal(false)}
           category={category}
           onSetCategory={onSetCategory}
@@ -47,7 +47,7 @@ const CategoryCard = ({
           type="checkbox"
           checked={checked}
           onChange={() => onToggleSelect(category.id)}
-          className="w-5 h-5 accent-primary"
+          className="cursor-pointer w-5 h-5 accent-primary"
         ></input>
       )}
     </div>

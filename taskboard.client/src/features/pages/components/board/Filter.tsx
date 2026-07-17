@@ -19,13 +19,15 @@ const Filter = ({
 }: Props) => {
   return (
     <div className="flex gap-3">
-      <span className="material-symbols-outlined">filter_alt</span>
+      <span className="cursor-default material-symbols-outlined">
+        filter_alt
+      </span>
 
       {/* 左: フィルターの種類 */}
       <select
         value={filterType}
         onChange={(e) => onChangeType(e.target.value as FilterType)}
-        className="bg-white border rounded w-50 px-2"
+        className="cursor-pointer bg-white border rounded w-50 px-2"
       >
         <option value="">フィルターなし</option>
         <option value="deadline">期限</option>
@@ -46,7 +48,7 @@ const Filter = ({
         <select
           value={filterValue}
           onChange={(e) => onChangeValue(e.target.value)}
-          className="bg-white border rounded w-50 px-2"
+          className="cursor-pointer bg-white border rounded w-50 px-2"
         >
           <option value="">選択...</option>
           <option value="3">高</option>
@@ -58,7 +60,7 @@ const Filter = ({
         <select
           value={filterValue}
           onChange={(e) => onChangeValue(e.target.value)}
-          className="bg-white border rounded w-50 px-2"
+          className="cursor-pointer bg-white border rounded w-50 px-2"
         >
           <option value="">選択...</option>
           {categories.map((category) => (

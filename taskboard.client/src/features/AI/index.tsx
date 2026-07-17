@@ -75,7 +75,7 @@ const AI = ({ isOpen, toggleAIWindow }: Props) => {
         type="button"
         aria-label="AI アシスタントを開く"
         onClick={toggleAIWindow}
-        className="w-full h-full bg-white shadow flex justify-center pt-2 hover:bg-gray-200"
+        className="cursor-pointer w-full h-full bg-white shadow flex justify-center pt-2 hover:bg-gray-200"
       >
         <span className="material-symbols-outlined">support_agent</span>
       </button>
@@ -90,7 +90,7 @@ const AI = ({ isOpen, toggleAIWindow }: Props) => {
         title="会話をリセット"
         onClick={handleReset}
         disabled={isSending}
-        className="absolute top-1 right-9 px-1 pt-1 rounded hover:bg-gray-200 disabled:opacity-50"
+        className="cursor-pointer absolute top-1 right-9 px-1 pt-1 rounded hover:bg-gray-200 disabled:opacity-50"
       >
         <span className="material-symbols-outlined">restart_alt</span>
       </button>

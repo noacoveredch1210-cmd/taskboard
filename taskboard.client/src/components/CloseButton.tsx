@@ -8,7 +8,7 @@ const CloseButton = ({ className, onClick }: Props) => {
     <button
       type="button"
       onClick={onClick}
-      className={`absolute top-1 right-1 px-1 pt-1 rounded ${className}`}
+      className={`cursor-pointer absolute top-1 right-1 px-1 pt-1 rounded ${className}`}
     >
       <span className="material-symbols-outlined">close</span>
     </button>

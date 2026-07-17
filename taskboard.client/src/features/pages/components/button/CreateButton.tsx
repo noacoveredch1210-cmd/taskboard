@@ -8,7 +8,7 @@ const CreateButton = ({ buttonName, onOpenModal }: Props) => {
     <button
       type="button"
       onClick={onOpenModal}
-      className="btn-base  px-5 border min-w-0 truncate bg-primary-button hover:bg-primary-button-hover"
+      className="btn-base px-5 border min-w-0 truncate bg-primary-button hover:bg-primary-button-hover"
     >
       {buttonName}
     </button>

@@ -131,7 +131,7 @@ const BoardModal = ({ onClose, board, onSetBoard, onCreateBoard }: Props) => {
   return (
     <ModalBase className="p-5 flex flex-col gap-3" onClose={onClose}>
       <div className="flex flex-col gap-2">
-        <div className="font-medium text-lg">
+        <div className="cursor-default font-medium text-lg">
           {board ? "board 編集" : "board 追加"}
         </div>
         <div>
@@ -163,8 +163,10 @@ const BoardModal = ({ onClose, board, onSetBoard, onCreateBoard }: Props) => {
       </div>
       <div className="flex flex-col gap-2 min-h-60 overflow-y-auto max-h-60">
         <div className="flex items-center gap-3">
-          <div className="font-medium text-lg">position の設定</div>
-          <div className="text-sm bg-gray-200 w-10 rounded h-5 flex items-center justify-center">
+          <div className="cursor-default font-medium text-lg">
+            position の設定
+          </div>
+          <div className="cursor-default text-sm bg-gray-200 w-10 rounded h-5 flex items-center justify-center">
             {draftPositions.length}
           </div>
         </div>

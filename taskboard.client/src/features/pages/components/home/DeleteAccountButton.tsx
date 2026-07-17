@@ -10,7 +10,7 @@ const DeleteAccountButton = () => {
       <button
         type="button"
         onClick={() => setOpenModal(true)}
-        className="text-sm text-gray-400 underline hover:text-red-600"
+        className="cursor-pointer text-sm text-gray-400 underline hover:text-red-600"
       >
         アプリを退会する
       </button>

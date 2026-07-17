@@ -12,7 +12,11 @@ const CharCounter = ({ current, max }: Props) => {
         ? "text-amber-600"
         : "text-gray-400";
 
-  return <div className={`text-xs text-right ${color}`}>{`${current}/${max}`}</div>;
+  return (
+    <div
+      className={`cursor-default text-xs text-right ${color}`}
+    >{`${current}/${max}`}</div>
+  );
 };
 
 export default CharCounter;

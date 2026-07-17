@@ -9,7 +9,7 @@ type props = {
 const Header = ({ title, boardId }: props) => {
   return (
     <div className="bg-primary-light h-10 flex items-center justify-between px-5 border-b border-b-gray-400">
-      <div className="font-medium truncate">{title}</div>
+      <div className="cursor-default font-medium truncate">{title}</div>
       {boardId && <MemberAvatars boardId={boardId} />}
     </div>
   );

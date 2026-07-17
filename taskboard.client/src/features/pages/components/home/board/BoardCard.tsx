@@ -33,7 +33,7 @@ const BoardCard = ({
     <div className="flex gap-2 items-center">
       <button
         onClick={handleCardClick}
-        className="w-full grid bg-primary-button rounded border grid-cols-10 hover:bg-primary-button-hover"
+        className="cursor-pointer w-full grid bg-primary-button rounded border grid-cols-10 hover:bg-primary-button-hover"
       >
         <div className="flex items-center border-r col-span-4 px-2 h-8 min-w-0">
           <span className="truncate">{boardInfo.title}</span>

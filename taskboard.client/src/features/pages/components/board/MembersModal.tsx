@@ -124,22 +124,24 @@ const MembersModal = ({ boardInfo, onClose, onLeaveBoard }: Props) => {
       {/* 除外の確認 */}
       {pendingRemove ? (
         <div className="flex flex-col gap-4">
-          <div className="font-bold text-red-600">メンバーを外しますか？</div>
-          <p className="text-sm text-gray-600">
+          <div className="cursor-default font-bold text-red-600">
+            メンバーを外しますか？
+          </div>
+          <p className="cursor-default text-sm text-gray-600">
             {pendingRemove.name} をこのボードから外します。
           </p>
           <div className="flex justify-end gap-3">
             <button
               type="button"
               onClick={() => setPendingRemove(null)}
-              className="rounded border hover:bg-gray-100 px-4 py-1"
+              className="cursor-pointer rounded border hover:bg-gray-100 px-4 py-1"
             >
               キャンセル
             </button>
             <button
               type="button"
               onClick={confirmRemove}
-              className="rounded bg-red-600 text-white hover:bg-red-700 px-4 py-1"
+              className="cursor-pointer rounded bg-red-600 text-white hover:bg-red-700 px-4 py-1"
             >
               外す
             </button>
@@ -150,7 +152,7 @@ const MembersModal = ({ boardInfo, onClose, onLeaveBoard }: Props) => {
           {/* 参加リクエスト（オーナーのみ） */}
           {isOwner && requests.length > 0 && (
             <div className="flex flex-col gap-2">
-              <div className="font-bold">参加リクエスト</div>
+              <div className="cursor-default font-bold">参加リクエスト</div>
               <ul className="flex flex-col gap-2">
                 {requests.map((r) => (
                   <li
@@ -158,7 +160,7 @@ const MembersModal = ({ boardInfo, onClose, onLeaveBoard }: Props) => {
                     className="flex items-center gap-2 border rounded px-3 py-2 bg-yellow-50"
                   >
                     <Avatar name={r.name} size={28} />
-                    <div className="min-w-0 flex-1">
+                    <div className="cursor-default min-w-0 flex-1">
                       <div className="truncate">{r.name}</div>
                       <div className="truncate text-xs text-gray-500">
                         {r.email}
@@ -168,7 +170,7 @@ const MembersModal = ({ boardInfo, onClose, onLeaveBoard }: Props) => {
                       type="button"
                       disabled={busyId !== null}
                       onClick={() => approve(r.userId)}
-                      className="text-xs bg-primary rounded px-2 py-1 hover:bg-primary-hover disabled:opacity-50"
+                      className="cursor-pointer text-xs bg-primary rounded px-2 py-1 hover:bg-primary-hover disabled:opacity-50"
                     >
                       承認
                     </button>
@@ -176,7 +178,7 @@ const MembersModal = ({ boardInfo, onClose, onLeaveBoard }: Props) => {
                       type="button"
                       disabled={busyId !== null}
                       onClick={() => reject(r.userId)}
-                      className="text-xs border rounded px-2 py-1 hover:bg-gray-100 disabled:opacity-50"
+                      className="cursor-pointer text-xs border rounded px-2 py-1 hover:bg-gray-100 disabled:opacity-50"
                     >
                       却下
                     </button>
@@ -186,9 +188,11 @@ const MembersModal = ({ boardInfo, onClose, onLeaveBoard }: Props) => {
             </div>
           )}
 
-          <div className="font-bold">メンバー</div>
+          <div className="cursor-default font-bold">メンバー</div>
           {loading ? (
-            <div className="text-sm text-gray-500">読み込み中…</div>
+            <div className="cursor-default text-sm text-gray-500">
+              読み込み中…
+            </div>
           ) : (
             <ul className="flex flex-col gap-2">
               {members.map((m) => {
@@ -199,7 +203,7 @@ const MembersModal = ({ boardInfo, onClose, onLeaveBoard }: Props) => {
                     className="flex items-center gap-2 border rounded px-3 py-2"
                   >
                     <Avatar name={m.name} size={28} />
-                    <div className="min-w-0 flex-1">
+                    <div className="cursor-default min-w-0 flex-1">
                       <div className="truncate">
                         {m.name}
                         {isSelf && (
@@ -213,7 +217,7 @@ const MembersModal = ({ boardInfo, onClose, onLeaveBoard }: Props) => {
                       </div>
                     </div>
                     <span
-                      className={`text-xs rounded px-2 py-0.5 ${
+                      className={`text-xs rounded px-2 py-0.5 cursor-default ${
                         m.role === "owner"
                           ? "bg-primary-light"
                           : "bg-gray-100 text-gray-600"
@@ -230,7 +234,7 @@ const MembersModal = ({ boardInfo, onClose, onLeaveBoard }: Props) => {
                             type="button"
                             disabled={busyId !== null}
                             onClick={() => setRole(m.userId, "owner")}
-                            className="text-xs border rounded px-2 py-1 hover:bg-gray-100 disabled:opacity-50"
+                            className="cursor-pointer text-xs border rounded px-2 py-1 hover:bg-gray-100 disabled:opacity-50"
                           >
                             オーナーにする
                           </button>
@@ -239,7 +243,7 @@ const MembersModal = ({ boardInfo, onClose, onLeaveBoard }: Props) => {
                             type="button"
                             disabled={busyId !== null}
                             onClick={() => setRole(m.userId, "member")}
-                            className="text-xs border rounded px-2 py-1 hover:bg-gray-100 disabled:opacity-50"
+                            className="cursor-pointer text-xs border rounded px-2 py-1 hover:bg-gray-100 disabled:opacity-50"
                           >
                             メンバーに戻す
                           </button>
@@ -249,7 +253,7 @@ const MembersModal = ({ boardInfo, onClose, onLeaveBoard }: Props) => {
                           aria-label={`${m.name} を外す`}
                           disabled={busyId !== null}
                           onClick={() => setPendingRemove(m)}
-                          className="text-xs text-red-600 rounded px-2 py-1 hover:bg-red-50 disabled:opacity-50"
+                          className="cursor-pointer text-xs text-red-600 rounded px-2 py-1 hover:bg-red-50 disabled:opacity-50"
                         >
                           外す
                         </button>

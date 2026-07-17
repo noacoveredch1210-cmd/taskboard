@@ -30,8 +30,10 @@ const DeleteAccountModal = ({ onClose }: Props) => {
 
   return (
     <ModalBase className="p-10 flex flex-col gap-4" onClose={onClose}>
-      <div className="font-bold text-red-600">本当に退会しますか？</div>
-      <p className="text-sm text-gray-600">
+      <div className="cursor-default font-bold text-red-600">
+        本当に退会しますか？
+      </div>
+      <p className="cursor-default text-sm text-gray-600">
         すべてのボード・タスク・カテゴリーが削除され、元に戻せません。
       </p>
       <div className="flex justify-end gap-3">

@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import ModalBase from "../ModalBase";
-import CreateCategoryModal from "./category/CreateCategoryModal";
+import CustomCategoryModal from "./category/CustomCategoryModal";
 import type { TaskInfo } from "../../../../types/taskInfo";
 import type { Category } from "../../../../types/category";
 import type { Position } from "../../../../types/position";
@@ -239,7 +239,7 @@ const TaskModal = ({
         />
       </div>
       {showCategoryModal && (
-        <CreateCategoryModal
+        <CustomCategoryModal
           onClose={() => setShowCategoryModal(false)}
           onCreateCategory={onCreateCategory}
         />

@@ -20,7 +20,7 @@ const Sidebar = ({
 }: Props) => {
   return (
     <div
-      className={`bg-primary h-full relative pt-10 text-white ${isOpen ? "w-45" : "w-10"}`}
+      className={`bg-primary h-full overflow-y-auto relative pt-10 text-white ${isOpen ? "w-45" : "w-10"}`}
     >
       {isOpen ? (
         <CloseButton
@@ -30,7 +30,7 @@ const Sidebar = ({
       ) : (
         <button
           type="button"
-          className="px-1 pt-1 rounded absolute top-1 right-1 hover:bg-primary-hover"
+          className="cursor-pointer px-1 pt-1 rounded absolute top-1 right-1 hover:bg-primary-hover"
           onClick={toggleSidebar}
         >
           <span className="material-symbols-outlined">arrow_forward</span>

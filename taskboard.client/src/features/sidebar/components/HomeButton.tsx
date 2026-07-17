@@ -7,7 +7,7 @@ type Props = {
 const HomeButton = ({ isOpen, isOpenSidebar, openHome }: Props) => {
   return (
     <button
-      className={`flex px-3 w-full py-2 hover:bg-bg-base hover:text-primary ${isOpen ? "bg-[#f5f5f5] text-primary" : "text-white "} ${isOpenSidebar ? "" : "justify-center"}`}
+      className={`cursor-pointer flex px-3 w-full py-2 hover:bg-bg-base hover:text-primary ${isOpen ? "bg-[#f5f5f5] text-primary" : "text-white "} ${isOpenSidebar ? "" : "justify-center"}`}
       onClick={openHome}
     >
       <span className="material-symbols-outlined px-1">home</span>

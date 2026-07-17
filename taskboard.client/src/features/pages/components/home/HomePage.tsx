@@ -7,7 +7,7 @@ import BoardView from "./board/BoardView";
 import LogoutButton from "./LogoutButton";
 import DeleteAccountButton from "./DeleteAccountButton";
 import JoinBoardButton from "./JoinBoardButton";
-import CreateButton from "../CreateButton";
+import CreateButton from "../button/CreateButton";
 import { useState } from "react";
 import BoardModal from "./board/BoardModal";
 import WelcomeModal from "./WelcomeModal";
@@ -48,7 +48,7 @@ const HomePage = ({
 
   return (
     <div className="p-10 flex flex-col gap-3">
-      <div className="flex pb-5 flex-wrap items-center gap-5">
+      <div className=" flex pb-5 flex-wrap items-center gap-5">
         <UserData userInfo={userInfo} />
         <LogoutButton />
       </div>

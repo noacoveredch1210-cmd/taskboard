@@ -23,13 +23,15 @@ const ToastViewport = ({ toasts, onDismiss }: Props) => {
           data-testid="toast"
           className="flex items-center gap-3 rounded border border-red-200 bg-white px-4 py-3 shadow-lg"
         >
-          <span className="material-symbols-outlined text-red-500">error</span>
-          <span className="text-sm">{toast.message}</span>
+          <span className="cursor-default material-symbols-outlined text-red-500">
+            error
+          </span>
+          <span className="cursor-default text-sm">{toast.message}</span>
           <button
             type="button"
             aria-label="通知を閉じる"
             onClick={() => onDismiss(toast.id)}
-            className="ml-2 rounded px-1 hover:bg-gray-100 pt-1"
+            className="cursor-pointer ml-2 rounded px-1 hover:bg-gray-100 pt-1"
           >
             <span className="material-symbols-outlined">close</span>
           </button>

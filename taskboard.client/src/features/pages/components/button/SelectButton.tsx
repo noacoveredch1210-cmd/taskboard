@@ -8,7 +8,7 @@ const SelectButton = ({ isSelectMode, onSetIsSelectMode }: Props) => {
     <button
       type="button"
       onClick={onSetIsSelectMode}
-      className="text-primary hover:underline decoration-solid"
+      className="cursor-pointer text-primary hover:underline decoration-solid"
     >
       {isSelectMode ? "キャンセル" : "選択"}
     </button>

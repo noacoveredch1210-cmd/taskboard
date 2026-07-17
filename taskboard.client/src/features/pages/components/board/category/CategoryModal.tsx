@@ -5,8 +5,8 @@ import { useState, useRef, useEffect } from "react";
 import SelectButton from "../../button/SelectButton";
 import FooterMenu from "../../FooterMenu";
 import ModalBase from "../../ModalBase";
-import CreateButton from "../../CreateButton";
-import CreateCategoryModal from "./CreateCategoryModal";
+import CreateButton from "../../button/CreateButton";
+import CustomCategoryModal from "./CustomCategoryModal";
 import type { BoardInfo } from "../../../../../types/boardInfo";
 
 type Props = {
@@ -74,7 +74,7 @@ const CategoryModal = ({
         className="p-8 max-w-full flex flex-col gap-3"
         onClose={onClose}
       >
-        <div className="text-lg font-medium">カテゴリー管理</div>
+        <div className="cursor-default text-lg font-medium">カテゴリー管理</div>
         <div>
           <CreateButton
             buttonName="カテゴリーを追加"
@@ -86,7 +86,7 @@ const CategoryModal = ({
             ref={rootRef}
             className="border-2 w-full min-h-100 max-h-100 overflow-x-auto relative flex flex-col min-w-150"
           >
-            <div className="flex justify-between border-b-2 px-2 py-1 bg-primary-light">
+            <div className="cursor-default flex justify-between border-b-2 px-2 py-1 bg-primary-light">
               <span>カテゴリー一覧</span>
               <SelectButton
                 isSelectMode={isSelectMode}
@@ -122,7 +122,7 @@ const CategoryModal = ({
         </div>
       </ModalBase>
       {openCreateCategoryModal && (
-        <CreateCategoryModal
+        <CustomCategoryModal
           onClose={() => setOpenCreateCategoryModal(false)}
           onCreateCategory={(name, color) =>
             onCreateCategory(boardInfo.id, name, color)
