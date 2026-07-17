@@ -256,8 +256,13 @@ describe("toUpdateTaskRequest", () => {
       name: "タスク名",
       comment: "コメント",
       importance: 2,
-      orderIndex: 1.5,
     });
+  });
+
+  // 並べ替えは move の担当。編集のペイロードに order_index は載せない
+  // （クライアントの値は古いことがあり、書き戻すと並びを壊す）。
+  it("orderIndex は載せない", () => {
+    expect(toUpdateTaskRequest(baseTask)).not.toHaveProperty("orderIndex");
   });
 
   it("deadline をローカルタイムの YYYY-MM-DD へ整形する（日ズレしない）", () => {
@@ -314,7 +319,6 @@ describe("DTO → UI → DTO の往復", () => {
       comment: "コメント",
       importance: 2,
       deadline: "2026-07-08",
-      orderIndex: 1.5,
     });
   });
 });

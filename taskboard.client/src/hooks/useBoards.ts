@@ -87,22 +87,17 @@ export const useBoards = () => {
       return;
     }
 
-    // 新規: 作成先カラムの先頭に来るよう order_index を採番する。
-    // サーバーは order_index の昇順で返すので、最小値より小さい値を振る。
-    const columnTasks = tasks.filter((t) => t.positionId === task.positionId);
-    const orderIndex = columnTasks.length
-      ? Math.min(...columnTasks.map((t) => t.orderIndex)) - 1
-      : 0;
-    const newTask: TaskInfo = { ...task, orderIndex };
-
-    // 表示順は配列順なので、state でも先頭へ入れる（再取得を待たずに先頭へ出す）
+    // 新規: order_index は採番しない。サーバーが「そのカラムの最小値 - 1」を振り、先頭へ入れる。
+    // ここで計算しないのは、移動や振り直しの後、クライアントが持つ order_index が
+    // 古くなっているため（古い値から採番すると、意図しない位置に入る）。
+    // 表示順は配列順なので、state では先頭へ入れれば再取得を待たずに先頭に出せる。
     setBoards((prev) =>
       prev.map((b) =>
-        b.id !== boardId ? b : { ...b, tasks: [newTask, ...(b.tasks ?? [])] },
+        b.id !== boardId ? b : { ...b, tasks: [task, ...(b.tasks ?? [])] },
       ),
     );
     tasksApi
-      .create(toCreateTaskRequest(newTask, boardId))
+      .create(toCreateTaskRequest(task, boardId))
       .catch(handleFailure("タスクの作成に失敗しました", boards));
   };
   // #endregion
@@ -228,48 +223,16 @@ export const useBoards = () => {
     );
   };
 
-  // 移動したタスクの新しい order_index を「移動先の両隣の中間値」で決める。
-  // 中間値が浮動小数の精度で表現できない(枯渇した)場合は null を返す → 呼び出し側でリバランス。
-  const nextOrderIndex = (column: TaskInfo[], at: number): number | null => {
-    const prev = column[at - 1];
-    const next = column[at + 1];
-
-    if (prev && next) {
-      const mid = (prev.orderIndex + next.orderIndex) / 2;
-      return mid > prev.orderIndex && mid < next.orderIndex ? mid : null;
-    }
-    if (next) return next.orderIndex - 1; // 先頭へ
-    if (prev) return prev.orderIndex + 1; // 末尾へ
-    return 0; // カラムに 1 件だけ
-  };
-
-  // 安全網: 分数が枯渇したカラムだけ order_index を 0,1,2,… に振り直して全件保存する。
-  const rebalanceColumn = (
-    boardId: string,
-    allTasks: TaskInfo[],
-    column: TaskInfo[],
-    snapshot: BoardInfo[],
-  ) => {
-    const renumbered = new Map(column.map((t, i) => [t.id, i]));
-    const nextTasks = allTasks.map((t) => {
-      const index = renumbered.get(t.id);
-      return index === undefined ? t : { ...t, orderIndex: index };
-    });
-
-    setBoards((prev) =>
-      prev.map((board) =>
-        board.id !== boardId ? board : { ...board, tasks: nextTasks },
-      ),
-    );
-    column.forEach((t, i) =>
-      tasksApi
-        .update(t.id, toUpdateTaskRequest({ ...t, orderIndex: i }))
-        .catch(handleFailure("並び順の再整列に失敗しました", snapshot)),
-    );
-  };
-
   /**
-   * 並び替えの確定(dragEnd 等)。動いた 1 件だけ order_index を計算して DB へ保存する。
+   * 並び替えの確定(dragEnd 等)。
+   *
+   * order_index は計算しない。「移動先の両隣は誰か」だけを送り、採番はサーバーに任せる
+   * （中間値の枯渇と振り直しも、サーバーが 1 トランザクションで面倒を見る）。
+   * かつてはここで中間値を計算し、枯渇時はカラム全件を個別に PUT していたが、
+   * その振り直しは原子的でなく、途中で失敗すると一部だけ新しい連番・残りは古い密集値、
+   * という並び順が壊れた状態がサーバーに残った。
+   *
+   * 表示順は配列順なので、クライアントは order_index の値を知らなくても描画できる。
    *
    * @param tasks 移動後のタスク配列
    * @param tasksBeforeMove 移動前のタスク配列。巻き戻し用のスナップショットに使う。
@@ -289,29 +252,21 @@ export const useBoards = () => {
       board.id !== boardId ? board : { ...board, tasks: tasksBeforeMove },
     );
 
+    // 移動後のカラムでの両隣を、サーバーへ伝える「意図」にする。
     const column = tasks.filter((t) => t.positionId === moved.positionId);
     const at = column.findIndex((t) => t.id === movedTaskId);
-    const orderIndex = nextOrderIndex(column, at);
 
-    // 中間値が枯渇していたら、このカラムを振り直して終わり(安全網)
-    if (orderIndex === null) {
-      rebalanceColumn(boardId, tasks, column, snapshot);
-      return;
-    }
-
-    const updated: TaskInfo = { ...moved, orderIndex };
     setBoards((prev) =>
       prev.map((board) =>
-        board.id !== boardId
-          ? board
-          : {
-              ...board,
-              tasks: tasks.map((t) => (t.id === movedTaskId ? updated : t)),
-            },
+        board.id !== boardId ? board : { ...board, tasks },
       ),
     );
     tasksApi
-      .update(movedTaskId, toUpdateTaskRequest(updated))
+      .move(movedTaskId, {
+        positionId: moved.positionId || null,
+        prevTaskId: column[at - 1]?.id ?? null,
+        nextTaskId: column[at + 1]?.id ?? null,
+      })
       .catch(handleFailure("タスクの並び順の保存に失敗しました", snapshot));
   };
   // #endregion

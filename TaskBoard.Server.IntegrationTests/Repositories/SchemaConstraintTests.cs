@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 using Dapper;
 using TaskBoard.Server.Data;
 using TaskBoard.Server.IntegrationTests.Infrastructure;
@@ -31,7 +31,7 @@ namespace TaskBoard.Server.IntegrationTests.Repositories
             await new PositionRepository(connection).CreateAsync(new CreatePositionRequest
             { Id = positionId, BoardId = boardId, Name = "Todo", OrderIndex = 0 }, User);
             await new TaskRepository(connection).CreateAsync(new CreateTaskRequest
-            { Id = taskId, BoardId = boardId, PositionId = positionId, Name = "タスク", OrderIndex = 0 }, User);
+            { Id = taskId, BoardId = boardId, PositionId = positionId, Name = "タスク" }, User);
 
             // 列を削除しても、そこにあったタスクは未配置として残す（ON DELETE SET NULL）。
             await new PositionRepository(connection).DeleteAsync(positionId, User);
@@ -56,7 +56,7 @@ namespace TaskBoard.Server.IntegrationTests.Repositories
             await new PositionRepository(connection).CreateAsync(new CreatePositionRequest
             { Id = positionId, BoardId = boardId, Name = "Todo", OrderIndex = 0 }, User);
             await new TaskRepository(connection).CreateAsync(new CreateTaskRequest
-            { Id = taskId, BoardId = boardId, PositionId = positionId, Name = "タスク", OrderIndex = 0 }, User);
+            { Id = taskId, BoardId = boardId, PositionId = positionId, Name = "タスク" }, User);
 
             await new BoardRepository(connection).DeleteAsync(boardId, User);
 

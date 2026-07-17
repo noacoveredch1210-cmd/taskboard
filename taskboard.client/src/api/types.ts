@@ -79,6 +79,7 @@ export type UpdateBoardRequest = {
   title: string;
 };
 
+/** 作成。orderIndex は送らない（新規タスクはサーバーがそのカラムの先頭へ入れる）。 */
 export type CreateTaskRequest = {
   id: string;
   boardId: string;
@@ -89,8 +90,12 @@ export type CreateTaskRequest = {
   comment?: string | null;
   importance?: number | null;
   deadline?: string | null;
-  orderIndex: number;
 };
+/**
+ * 編集。orderIndex は送らない（並べ替えは move の担当）。
+ * クライアントが持つ orderIndex はサーバーの採番・振り直しの後では古いので、
+ * 編集のたびに書き戻すと、直ったばかりの並びを壊してしまう。
+ */
 export type UpdateTaskRequest = {
   positionId?: string | null;
   categoryId?: string | null;
@@ -99,7 +104,16 @@ export type UpdateTaskRequest = {
   comment?: string | null;
   importance?: number | null;
   deadline?: string | null;
-  orderIndex: number;
+};
+
+/**
+ * 並べ替え。order_index は載せない（採番はサーバーの担当）。
+ * 移動先での両隣を送る。先頭なら prevTaskId、末尾なら nextTaskId が null。
+ */
+export type MoveTaskRequest = {
+  positionId?: string | null;
+  prevTaskId?: string | null;
+  nextTaskId?: string | null;
 };
 
 export type CreateCategoryRequest = {

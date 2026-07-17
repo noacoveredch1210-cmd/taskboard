@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   loadBoards: vi.fn(),
   createTask: vi.fn(),
   updateTask: vi.fn(),
+  moveTask: vi.fn(),
   removeTask: vi.fn(),
   createBoard: vi.fn(),
   updateBoard: vi.fn(),
@@ -33,6 +34,7 @@ vi.mock("../api/tasks", () => ({
   tasksApi: {
     create: mocks.createTask,
     update: mocks.updateTask,
+    move: mocks.moveTask,
     remove: mocks.removeTask,
   },
 }));
@@ -110,6 +112,7 @@ beforeEach(() => {
   // 各 API は既定で成功させる（失敗時の挙動は個別のテストで上書きする）。
   mocks.createTask.mockResolvedValue(undefined);
   mocks.updateTask.mockResolvedValue(undefined);
+  mocks.moveTask.mockResolvedValue(undefined);
   mocks.removeTask.mockResolvedValue(undefined);
   mocks.createBoard.mockResolvedValue(undefined);
   mocks.updateBoard.mockResolvedValue(undefined);
@@ -147,14 +150,13 @@ describe("初回ロード", () => {
 });
 
 describe("saveTask", () => {
-  it("新規タスクは同じ列の先頭の orderIndex - 1 で作成する", async () => {
+  // order_index の採番はサーバーの担当（新規はそのカラムの先頭へ入る）。
+  it("新規タスクの作成では orderIndex を送らない", async () => {
     const { result } = await renderLoaded([
       board({
         tasks: [
           task({ id: "t1", positionId: "pos-1", orderIndex: 0 }),
           task({ id: "t2", positionId: "pos-1", orderIndex: 5 }),
-          // 別の列は採番に影響しない
-          task({ id: "t3", positionId: "pos-2", orderIndex: -99 }),
         ],
       }),
     ]);
@@ -167,11 +169,8 @@ describe("saveTask", () => {
     expect(mocks.createTask.mock.calls[0][0]).toMatchObject({
       id: "new",
       boardId: "board-1",
-      orderIndex: -1,
     });
-    expect(
-      result.current.boards[0].tasks?.find((t) => t.id === "new")?.orderIndex,
-    ).toBe(-1);
+    expect(mocks.createTask.mock.calls[0][0]).not.toHaveProperty("orderIndex");
   });
 
   it("新規タスクは表示順でも先頭に来る（配列の先頭へ入れる）", async () => {
@@ -195,14 +194,15 @@ describe("saveTask", () => {
     expect(inColumn).toEqual(["new", "t1", "t2"]);
   });
 
-  it("空の列に追加するときは orderIndex 0 で作成する", async () => {
+  it("空の列にも追加できる", async () => {
     const { result } = await renderLoaded([board({ tasks: [] })]);
 
     act(() => {
       result.current.saveTask("board-1", task({ id: "new" }));
     });
 
-    expect(mocks.createTask.mock.calls[0][0]).toMatchObject({ orderIndex: 0 });
+    expect(mocks.createTask).toHaveBeenCalledTimes(1);
+    expect(result.current.boards[0].tasks).toHaveLength(1);
   });
 
   it("既存タスクは更新し、作成しない", async () => {
@@ -280,7 +280,7 @@ describe("通信が切れていて再取得もできない場合", () => {
   });
 
   it("タスクの移動を、ドラッグ開始時点の並びへ巻き戻す", async () => {
-    mocks.updateTask.mockRejectedValue(new Error("boom"));
+    mocks.moveTask.mockRejectedValue(new Error("boom"));
     const before = [
       task({ id: "a", positionId: "pos-1", orderIndex: 0 }),
       task({ id: "moved", positionId: "pos-1", orderIndex: 1 }),
@@ -310,114 +310,99 @@ describe("通信が切れていて再取得もできない場合", () => {
   });
 });
 
-describe("commitTaskMove（orderIndex の採番）", () => {
+// order_index の採番はサーバーの担当。クライアントは「移動先の両隣は誰か」だけを送る。
+// 中間値・枯渇・振り直しの検証はサーバーの統合テスト（実 DB）が持つ。
+describe("commitTaskMove（サーバーへ送るのは値ではなく両隣）", () => {
   /** 指定の列を持つ board を用意し、移動後のタスク配列を渡して commit する。 */
   const commit = async (tasks: TaskInfo[], movedId: string) => {
     const { result } = await renderLoaded([board({ tasks })]);
     act(() => {
-      // 採番の検証では巻き戻しは起きないため、移動前後で同じ配列を渡してよい。
+      // ここでは巻き戻しは起きないため、移動前後で同じ配列を渡してよい。
       result.current.commitTaskMove("board-1", movedId, tasks, tasks);
     });
     return result;
   };
 
-  it("両隣に挟まれた位置へ移動したら中間値を採番する", async () => {
+  it("両隣に挟まれた位置なら prev と next を送る", async () => {
     await commit(
       [
-        task({ id: "a", orderIndex: 0 }),
-        task({ id: "moved", orderIndex: 99 }),
-        task({ id: "b", orderIndex: 1 }),
+        task({ id: "a", positionId: "pos-1" }),
+        task({ id: "moved", positionId: "pos-1" }),
+        task({ id: "b", positionId: "pos-1" }),
       ],
       "moved",
     );
 
-    expect(mocks.updateTask).toHaveBeenCalledTimes(1);
-    expect(mocks.updateTask.mock.calls[0][0]).toBe("moved");
-    expect(mocks.updateTask.mock.calls[0][1]).toMatchObject({ orderIndex: 0.5 });
+    expect(mocks.moveTask).toHaveBeenCalledTimes(1);
+    expect(mocks.moveTask.mock.calls[0][0]).toBe("moved");
+    expect(mocks.moveTask.mock.calls[0][1]).toEqual({
+      positionId: "pos-1",
+      prevTaskId: "a",
+      nextTaskId: "b",
+    });
   });
 
-  it("先頭へ移動したら次の要素 - 1 を採番する", async () => {
+  it("先頭なら prev は null", async () => {
     await commit(
-      [task({ id: "moved", orderIndex: 99 }), task({ id: "b", orderIndex: 3 })],
+      [
+        task({ id: "moved", positionId: "pos-1" }),
+        task({ id: "b", positionId: "pos-1" }),
+      ],
       "moved",
     );
 
-    expect(mocks.updateTask.mock.calls[0][1]).toMatchObject({ orderIndex: 2 });
+    expect(mocks.moveTask.mock.calls[0][1]).toMatchObject({
+      prevTaskId: null,
+      nextTaskId: "b",
+    });
   });
 
-  it("末尾へ移動したら前の要素 + 1 を採番する", async () => {
+  it("末尾なら next は null", async () => {
     await commit(
-      [task({ id: "a", orderIndex: 3 }), task({ id: "moved", orderIndex: 99 })],
+      [
+        task({ id: "a", positionId: "pos-1" }),
+        task({ id: "moved", positionId: "pos-1" }),
+      ],
       "moved",
     );
 
-    expect(mocks.updateTask.mock.calls[0][1]).toMatchObject({ orderIndex: 4 });
+    expect(mocks.moveTask.mock.calls[0][1]).toMatchObject({
+      prevTaskId: "a",
+      nextTaskId: null,
+    });
   });
 
-  it("列に 1 件だけなら orderIndex 0 を採番する", async () => {
-    await commit([task({ id: "moved", orderIndex: 99 })], "moved");
+  it("列に 1 件だけなら両隣とも null", async () => {
+    await commit([task({ id: "moved", positionId: "pos-1" })], "moved");
 
-    expect(mocks.updateTask.mock.calls[0][1]).toMatchObject({ orderIndex: 0 });
+    expect(mocks.moveTask.mock.calls[0][1]).toMatchObject({
+      prevTaskId: null,
+      nextTaskId: null,
+    });
   });
 
   it("存在しないタスク id なら何もしない", async () => {
     await commit([task({ id: "a" })], "unknown");
 
-    expect(mocks.updateTask).not.toHaveBeenCalled();
+    expect(mocks.moveTask).not.toHaveBeenCalled();
   });
 
-  it("別の列のタスクは採番の対象にしない", async () => {
-    // pos-1 は moved 1 件だけ。pos-2 の値に引きずられて中間値を取らないこと。
+  it("別の列のタスクは両隣に含めない", async () => {
+    // pos-1 は moved 1 件だけ。pos-2 のタスクを隣として送らないこと。
     await commit(
       [
-        task({ id: "moved", positionId: "pos-1", orderIndex: 99 }),
-        task({ id: "x", positionId: "pos-2", orderIndex: 0 }),
-        task({ id: "y", positionId: "pos-2", orderIndex: 10 }),
+        task({ id: "moved", positionId: "pos-1" }),
+        task({ id: "x", positionId: "pos-2" }),
+        task({ id: "y", positionId: "pos-2" }),
       ],
       "moved",
     );
 
-    expect(mocks.updateTask).toHaveBeenCalledTimes(1);
-    expect(mocks.updateTask.mock.calls[0][1]).toMatchObject({ orderIndex: 0 });
-  });
-});
-
-describe("commitTaskMove（中間値が枯渇したときのリバランス）", () => {
-  it("両隣の中間値が表現できないとき、その列だけ 0,1,2… に振り直して全件保存する", async () => {
-    // 1 と 1+ε の中間値は binary64 では 1 に丸められ、prev と区別できない。
-    const prev = 1;
-    const next = 1 + Number.EPSILON;
-    expect((prev + next) / 2).toBe(prev); // 前提の確認
-
-    const tasks = [
-      task({ id: "a", positionId: "pos-1", orderIndex: prev }),
-      task({ id: "moved", positionId: "pos-1", orderIndex: 99 }),
-      task({ id: "b", positionId: "pos-1", orderIndex: next }),
-      // 別の列は振り直しの対象外
-      task({ id: "other", positionId: "pos-2", orderIndex: 42 }),
-    ];
-
-    const { result } = await renderLoaded([board({ tasks })]);
-    act(() => {
-      result.current.commitTaskMove("board-1", "moved", tasks, tasks);
+    expect(mocks.moveTask.mock.calls[0][1]).toEqual({
+      positionId: "pos-1",
+      prevTaskId: null,
+      nextTaskId: null,
     });
-
-    // pos-1 の 3 件だけが 0,1,2 で保存される。
-    expect(mocks.updateTask).toHaveBeenCalledTimes(3);
-    const saved = mocks.updateTask.mock.calls.map(([id, req]) => [
-      id,
-      (req as { orderIndex: number }).orderIndex,
-    ]);
-    expect(saved).toEqual([
-      ["a", 0],
-      ["moved", 1],
-      ["b", 2],
-    ]);
-
-    // state 側も振り直され、別の列の値は保たれる。
-    const updated = result.current.boards[0].tasks ?? [];
-    expect(updated.find((t) => t.id === "moved")?.orderIndex).toBe(1);
-    expect(updated.find((t) => t.id === "other")?.orderIndex).toBe(42);
   });
 });
 

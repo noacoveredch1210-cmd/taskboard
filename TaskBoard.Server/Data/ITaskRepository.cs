@@ -13,6 +13,11 @@ namespace TaskBoard.Server.Data
         /// <summary>board を所有していない、または割り当て先が不正なら false を返し、行を作らない。</summary>
         Task<bool> CreateAsync(CreateTaskRequest request, Guid userId);
         Task<bool> UpdateAsync(Guid id, Guid userId, UpdateTaskRequest request);
+        /// <summary>
+        /// 移動（並べ替え）。order_index はクライアントから受け取らず、両隣から採番する。
+        /// 精度が枯渇したら、そのカラムの振り直しまで含めて 1 トランザクションで行う。
+        /// </summary>
+        Task<bool> MoveAsync(Guid id, Guid userId, MoveTaskRequest request);
         /// <summary>削除（ソフト削除でゴミ箱へ）。オーナーのみ。</summary>
         Task<bool> DeleteAsync(Guid id, Guid userId);
 

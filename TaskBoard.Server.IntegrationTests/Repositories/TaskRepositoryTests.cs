@@ -1,4 +1,5 @@
-using System.Data;
+﻿using System.Data;
+using Dapper;
 using TaskBoard.Server.Data;
 using TaskBoard.Server.IntegrationTests.Infrastructure;
 using TaskBoard.Server.Models;
@@ -298,6 +299,170 @@ namespace TaskBoard.Server.IntegrationTests.Repositories
             Assert.Null(task!.AssigneeId);
         }
 
+        // ---- 移動（order_index の採番はサーバーが持つ） ----
+
+        [SkippableFact]
+        public async Task Move_は両隣の中間値を採番する()
+        {
+            RequireDocker();
+            using var connection = await Fixture.OpenConnectionAsync();
+            var world = await SeedWorldAsync(connection);
+            var repository = new TaskRepository(connection);
+
+            var (a, b, c) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+            await SeedColumnAsync(connection, repository, world, [(a, 0), (b, 1), (c, 2)]);
+
+            // c を a と b の間へ。
+            await repository.MoveAsync(c, Owner, new MoveTaskRequest
+            { PositionId = world.OwnerPosition, PrevTaskId = a, NextTaskId = b });
+
+            var moved = await repository.GetByIdAsync(c, Owner);
+            Assert.Equal(0.5, moved!.OrderIndex);
+            Assert.Equal([a, c, b], await ColumnOrderAsync(repository, world));
+        }
+
+        [SkippableFact]
+        public async Task Move_は先頭と末尾も採番できる()
+        {
+            RequireDocker();
+            using var connection = await Fixture.OpenConnectionAsync();
+            var world = await SeedWorldAsync(connection);
+            var repository = new TaskRepository(connection);
+
+            var (a, b) = (Guid.NewGuid(), Guid.NewGuid());
+            await SeedColumnAsync(connection, repository, world, [(a, 0), (b, 1)]);
+
+            // b を先頭へ（prev なし）
+            await repository.MoveAsync(b, Owner, new MoveTaskRequest
+            { PositionId = world.OwnerPosition, PrevTaskId = null, NextTaskId = a });
+            Assert.Equal([b, a], await ColumnOrderAsync(repository, world));
+
+            // b を末尾へ（next なし）
+            await repository.MoveAsync(b, Owner, new MoveTaskRequest
+            { PositionId = world.OwnerPosition, PrevTaskId = a, NextTaskId = null });
+            Assert.Equal([a, b], await ColumnOrderAsync(repository, world));
+        }
+
+        /// <summary>
+        /// 本命。中間値が枯渇するまで同じ隙間へ入れ続け、振り直しが起きても
+        /// 並び順が保たれることを実 DB で確かめる。クライアント側の実装では
+        /// 振り直しが複数 UPDATE に分かれるため、途中で失敗すると順序が壊れていた。
+        /// </summary>
+        [SkippableFact]
+        public async Task Move_は精度が枯渇したら振り直して並び順を保つ()
+        {
+            RequireDocker();
+            using var connection = await Fixture.OpenConnectionAsync();
+            var world = await SeedWorldAsync(connection);
+            var repository = new TaskRepository(connection);
+
+            var (bottom, top) = (Guid.NewGuid(), Guid.NewGuid());
+            await SeedColumnAsync(connection, repository, world, [(bottom, 0), (top, 1)]);
+
+            // bottom と top の隙間の「上側」へ詰め続ける。53 回ほどで中間値が作れなくなる。
+            var inserted = new List<Guid>();
+            var prev = bottom;
+            for (var i = 0; i < 60; i++)
+            {
+                var id = Guid.NewGuid();
+                await repository.CreateAsync(
+                    NewTask(id, world.OwnerBoard, world.OwnerPosition), Owner);
+                Assert.True(await repository.MoveAsync(id, Owner, new MoveTaskRequest
+                { PositionId = world.OwnerPosition, PrevTaskId = prev, NextTaskId = top }));
+                inserted.Add(id);
+                prev = id; // 次はこのカードの上（＝ top 側）へ詰める
+            }
+
+            // 期待する並び: bottom, 入れた順, top
+            var expected = new List<Guid> { bottom };
+            expected.AddRange(inserted);
+            expected.Add(top);
+            Assert.Equal(expected, await ColumnOrderAsync(repository, world));
+
+            // 振り直しが起きているので、値は密集していない（隣同士が区別できる）。
+            var indexes = (await repository.GetByBoardIdAsync(world.OwnerBoard, Owner))
+                .OrderBy(t => t.OrderIndex).Select(t => t.OrderIndex).ToList();
+            for (var i = 1; i < indexes.Count; i++)
+                Assert.True(indexes[i] > indexes[i - 1], "order_index が重複または逆転している");
+        }
+
+        [SkippableFact]
+        public async Task Move_はメンバーでなければ動かせない()
+        {
+            RequireDocker();
+            using var connection = await Fixture.OpenConnectionAsync();
+            var world = await SeedWorldAsync(connection);
+            var repository = new TaskRepository(connection);
+
+            var (a, b) = (Guid.NewGuid(), Guid.NewGuid());
+            await SeedColumnAsync(connection, repository, world, [(a, 0), (b, 1)]);
+
+            Assert.False(await repository.MoveAsync(b, Stranger, new MoveTaskRequest
+            { PositionId = world.OwnerPosition, PrevTaskId = null, NextTaskId = a }));
+            // 並びは変わっていない
+            Assert.Equal([a, b], await ColumnOrderAsync(repository, world));
+        }
+
+        [SkippableFact]
+        public async Task Move_は他boardのpositionへは動かせない()
+        {
+            RequireDocker();
+            using var connection = await Fixture.OpenConnectionAsync();
+            var world = await SeedWorldAsync(connection);
+            var repository = new TaskRepository(connection);
+
+            var a = Guid.NewGuid();
+            await SeedColumnAsync(connection, repository, world, [(a, 0)]);
+
+            Assert.False(await repository.MoveAsync(a, Owner, new MoveTaskRequest
+            { PositionId = world.StrangerPosition }));
+        }
+
+        [SkippableFact]
+        public async Task Move_は別カラムのタスクを隣に指定させない()
+        {
+            RequireDocker();
+            using var connection = await Fixture.OpenConnectionAsync();
+            var world = await SeedWorldAsync(connection);
+            var repository = new TaskRepository(connection);
+
+            var a = Guid.NewGuid();
+            await SeedColumnAsync(connection, repository, world, [(a, 0)]);
+
+            // 他人の board のタスクを prev に指定する。
+            var alien = Guid.NewGuid();
+            await repository.CreateAsync(
+                NewTask(alien, world.StrangerBoard, world.StrangerPosition), Stranger);
+
+            Assert.False(await repository.MoveAsync(a, Owner, new MoveTaskRequest
+            { PositionId = world.OwnerPosition, PrevTaskId = alien }));
+        }
+
+        /// <summary>
+        /// 指定の order_index でタスクを並べる。
+        /// 作成は常に「カラムの先頭」に入る仕様なので、狙った並びを作るために
+        /// 作成後に order_index を直接書き換える（テストの前提づくり）。
+        /// </summary>
+        private static async Task SeedColumnAsync(
+            IDbConnection connection, TaskRepository repository, World world,
+            (Guid Id, double OrderIndex)[] tasks)
+        {
+            foreach (var (id, orderIndex) in tasks)
+            {
+                await repository.CreateAsync(
+                    NewTask(id, world.OwnerBoard, world.OwnerPosition), Owner);
+                await connection.ExecuteAsync(
+                    "UPDATE tasks SET order_index = @OrderIndex WHERE id = @Id",
+                    new { Id = id, OrderIndex = orderIndex });
+            }
+        }
+
+        /// <summary>カラムの並び（order_index 昇順の id）。</summary>
+        private static async Task<List<Guid>> ColumnOrderAsync(
+            TaskRepository repository, World world) =>
+            (await repository.GetByBoardIdAsync(world.OwnerBoard, Owner))
+                .OrderBy(t => t.OrderIndex).Select(t => t.Id).ToList();
+
         // ---- 2 ユーザー分の board / position / category を用意する ----
 
         private record World(
@@ -341,7 +506,6 @@ namespace TaskBoard.Server.IntegrationTests.Repositories
             BoardId = boardId,
             PositionId = positionId,
             Name = "タスク",
-            OrderIndex = 0,
         };
     }
 }

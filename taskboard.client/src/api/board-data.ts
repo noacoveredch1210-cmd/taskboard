@@ -135,7 +135,6 @@ export const toUpdateTaskRequest = (task: TaskInfo): UpdateTaskRequest => {
     comment: task.comment,
     importance: task.importance,
     deadline: task.deadline ? formatDateOnly(task.deadline) : null,
-    orderIndex: task.orderIndex,
   };
 };
 
@@ -154,6 +153,5 @@ export const toCreateTaskRequest = (
     comment: task.comment,
     importance: task.importance,
     deadline: task.deadline ? formatDateOnly(task.deadline) : null,
-    orderIndex: task.orderIndex,
   };
 };

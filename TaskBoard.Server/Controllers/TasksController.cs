@@ -53,6 +53,15 @@ namespace TaskBoard.Server.Controllers
             return NoContent();
         }
 
+        // POST /api/tasks/{id}/move （並べ替え。order_index はサーバーが採番する）
+        [HttpPost("{id}/move")]
+        public async Task<IActionResult> Move(Guid id, [FromBody] MoveTaskRequest request)
+        {
+            var success = await _repository.MoveAsync(id, CurrentUserId, request);
+            if (!success) return NotFound();
+            return NoContent();
+        }
+
         // DELETE /api/tasks/{id} （ゴミ箱へ移す。オーナーのみ）
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(Guid id)

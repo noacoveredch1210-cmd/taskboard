@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using NSubstitute;
 using TaskBoard.Server.Controllers;
 using TaskBoard.Server.Data;
@@ -71,7 +71,6 @@ namespace TaskBoard.Server.Tests.Controllers
                 BoardId = Guid.NewGuid(),
                 Name = "Write tests",
                 Deadline = new DateOnly(2026, 7, 9),
-                OrderIndex = 1.5,
             };
             var created = new TaskItem { Id = request.Id, BoardId = request.BoardId };
             _repository.CreateAsync(request, _userId).Returns(true);
@@ -103,13 +102,36 @@ namespace TaskBoard.Server.Tests.Controllers
         public async Task Update_ScopesWriteToAuthenticatedUser()
         {
             var id = Guid.NewGuid();
-            var request = new UpdateTaskRequest { Name = "Renamed", OrderIndex = 2 };
+            var request = new UpdateTaskRequest { Name = "Renamed" };
             _repository.UpdateAsync(id, _userId, request).Returns(true);
 
             var result = await CreateController().Update(id, request);
 
             Assert.IsType<NoContentResult>(result);
             await _repository.Received(1).UpdateAsync(id, _userId, request);
+        }
+
+        [Fact]
+        public async Task Move_ScopesMoveToAuthenticatedUser()
+        {
+            var id = Guid.NewGuid();
+            var request = new MoveTaskRequest { PositionId = Guid.NewGuid(), PrevTaskId = Guid.NewGuid() };
+            _repository.MoveAsync(id, _userId, request).Returns(true);
+
+            var result = await CreateController().Move(id, request);
+
+            Assert.IsType<NoContentResult>(result);
+            await _repository.Received(1).MoveAsync(id, _userId, request);
+        }
+
+        [Fact]
+        public async Task Move_ReturnsNotFound_WhenMissingOrNotOwned()
+        {
+            _repository.MoveAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<MoveTaskRequest>()).Returns(false);
+
+            var result = await CreateController().Move(Guid.NewGuid(), new MoveTaskRequest());
+
+            Assert.IsType<NotFoundResult>(result);
         }
 
         [Fact]
