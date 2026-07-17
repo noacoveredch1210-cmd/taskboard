@@ -17,8 +17,19 @@ const CreateCategoryModal = ({
   onCreateCategory,
   onSetCategory,
 }: Props) => {
+  // ランダムな色をピックする
+  const [colors] = useState(() =>
+    Array.from(
+      { length: 4 },
+      () =>
+        `#${Math.floor(Math.random() * 0xffffff)
+          .toString(16)
+          .padStart(6, "0")}`,
+    ),
+  );
+
   const [draftName, setDraftName] = useState(category?.name ?? "");
-  const [draftColor, setDraftColor] = useState(category?.color ?? "#349d36");
+  const [draftColor, setDraftColor] = useState(category?.color ?? colors[0]);
 
   const isEmpty = draftName === "";
 
@@ -43,10 +54,16 @@ const CreateCategoryModal = ({
         <div className="font-medium text-lg">テーマ色</div>
         <input
           type="color"
+          list="color"
           value={draftColor}
           onChange={(e) => setDraftColor(e.target.value)}
           className="w-12 h-7 "
         ></input>
+        <datalist id="color">
+          <option value={colors[1]}></option>
+          <option value={colors[2]}></option>
+          <option value={colors[3]}></option>
+        </datalist>
       </div>
       <div className="flex justify-end">
         <button

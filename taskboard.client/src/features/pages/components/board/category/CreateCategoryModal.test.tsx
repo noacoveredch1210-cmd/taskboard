@@ -25,7 +25,11 @@ describe("CreateCategoryModal（新規）", () => {
     );
     await user.type(nameInput(), "仕事");
     await user.click(screen.getByText("追加"));
-    expect(onCreateCategory).toHaveBeenCalledWith("仕事", "#349d36");
+    // 既定色はパレットからランダムに選ばれるので、値ではなく形式を確かめる。
+    expect(onCreateCategory).toHaveBeenCalledWith(
+      "仕事",
+      expect.stringMatching(/^#[0-9a-f]{6}$/),
+    );
     expect(onClose).toHaveBeenCalled();
   });
 
