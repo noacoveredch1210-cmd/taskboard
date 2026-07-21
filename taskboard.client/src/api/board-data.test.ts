@@ -84,18 +84,29 @@ const taskDto = (over: Partial<TaskDto> = {}): TaskDto => ({
   ...over,
 });
 
+/** 一覧（GET /boards）が返す、中身を含んだ board。 */
+const boardDetailDto = (over: Partial<BoardDto> = {}, contents: Partial<{
+  positions: PositionDto[];
+  tasks: TaskDto[];
+  categories: { id: string; boardId: string; name: string; color: string; createdAt: string }[];
+  members: { userId: string; name: string; email: string; role: "owner" | "member" }[];
+}> = {}) => ({
+  ...boardDto(over),
+  positions: contents.positions ?? [],
+  tasks: contents.tasks ?? [],
+  categories: contents.categories ?? [],
+  members: contents.members ?? [],
+});
+
 beforeEach(() => {
   vi.clearAllMocks();
-  // loadBoards は board ごとにカテゴリー・メンバーも引く。既定は空にしておく。
-  mocks.getCategoriesByBoard.mockResolvedValue([]);
-  mocks.getMembers.mockResolvedValue([]);
 });
 
 describe("loadBoards", () => {
-  it("board ごとに positions / tasks を取得してネスト構造へ組み立てる", async () => {
-    mocks.getMineBoards.mockResolvedValue([boardDto()]);
-    mocks.getPositionsByBoard.mockResolvedValue([positionDto()]);
-    mocks.getTasksByBoard.mockResolvedValue([taskDto()]);
+  it("1 リクエストで受け取った中身をネスト構造へ組み立てる", async () => {
+    mocks.getMineBoards.mockResolvedValue([
+      boardDetailDto({}, { positions: [positionDto()], tasks: [taskDto()] }),
+    ]);
 
     const [board] = await loadBoards();
 
@@ -108,36 +119,35 @@ describe("loadBoards", () => {
     expect(board.tasks).toHaveLength(1);
   });
 
-  it("各 board の id を渡して positions / tasks を引く", async () => {
+  // board が何枚でもリクエストは 1 本。増えると起動が遅くなり、画面へ戻るたびの
+  // 再取得だけでレート制限（100 回/分）を使い切ってしまう。
+  it("board が何枚あってもリクエストは 1 本だけ", async () => {
     mocks.getMineBoards.mockResolvedValue([
-      boardDto({ id: "board-1" }),
-      boardDto({ id: "board-2" }),
+      boardDetailDto({ id: "board-1" }),
+      boardDetailDto({ id: "board-2" }),
+      boardDetailDto({ id: "board-3" }),
     ]);
-    mocks.getPositionsByBoard.mockResolvedValue([]);
-    mocks.getTasksByBoard.mockResolvedValue([]);
 
     const boards = await loadBoards();
 
-    expect(boards.map((b) => b.id)).toEqual(["board-1", "board-2"]);
-    expect(mocks.getPositionsByBoard.mock.calls).toEqual([
-      ["board-1"],
-      ["board-2"],
-    ]);
-    expect(mocks.getTasksByBoard.mock.calls).toEqual([["board-1"], ["board-2"]]);
+    expect(boards.map((b) => b.id)).toEqual(["board-1", "board-2", "board-3"]);
+    expect(mocks.getMineBoards).toHaveBeenCalledTimes(1);
+    expect(mocks.getPositionsByBoard).not.toHaveBeenCalled();
+    expect(mocks.getTasksByBoard).not.toHaveBeenCalled();
+    expect(mocks.getCategoriesByBoard).not.toHaveBeenCalled();
+    expect(mocks.getMembers).not.toHaveBeenCalled();
   });
 
-  it("board が無ければ空配列を返し、詳細は取りに行かない", async () => {
+  it("board が無ければ空配列を返す", async () => {
     mocks.getMineBoards.mockResolvedValue([]);
 
     await expect(loadBoards()).resolves.toEqual([]);
-    expect(mocks.getPositionsByBoard).not.toHaveBeenCalled();
-    expect(mocks.getTasksByBoard).not.toHaveBeenCalled();
   });
 
   it("Position は id と name だけに絞る（orderIndex などは落とす）", async () => {
-    mocks.getMineBoards.mockResolvedValue([boardDto()]);
-    mocks.getPositionsByBoard.mockResolvedValue([positionDto()]);
-    mocks.getTasksByBoard.mockResolvedValue([]);
+    mocks.getMineBoards.mockResolvedValue([
+      boardDetailDto({}, { positions: [positionDto()] }),
+    ]);
 
     const [board] = await loadBoards();
 
@@ -145,15 +155,17 @@ describe("loadBoards", () => {
   });
 
   it("Task の null フィールドを UI の既定値へ埋める", async () => {
-    mocks.getMineBoards.mockResolvedValue([boardDto()]);
-    mocks.getPositionsByBoard.mockResolvedValue([]);
-    mocks.getTasksByBoard.mockResolvedValue([
-      taskDto({
-        comment: null,
-        importance: null,
-        deadline: null,
-        categoryId: null,
-        positionId: null,
+    mocks.getMineBoards.mockResolvedValue([
+      boardDetailDto({}, {
+        tasks: [
+          taskDto({
+            comment: null,
+            importance: null,
+            deadline: null,
+            categoryId: null,
+            positionId: null,
+          }),
+        ],
       }),
     ]);
 
@@ -170,9 +182,9 @@ describe("loadBoards", () => {
   });
 
   it("deadline をローカルタイムの Date として解釈する（日ズレしない）", async () => {
-    mocks.getMineBoards.mockResolvedValue([boardDto()]);
-    mocks.getPositionsByBoard.mockResolvedValue([]);
-    mocks.getTasksByBoard.mockResolvedValue([taskDto({ deadline: "2026-07-08" })]);
+    mocks.getMineBoards.mockResolvedValue([
+      boardDetailDto({}, { tasks: [taskDto({ deadline: "2026-07-08" })] }),
+    ]);
 
     const [board] = await loadBoards();
     const deadline = tasksOf(board)[0].deadline!;
@@ -182,42 +194,38 @@ describe("loadBoards", () => {
     expect(deadline.getDate()).toBe(8);
   });
 
-  it("いずれかの取得が失敗したら reject する", async () => {
-    mocks.getMineBoards.mockResolvedValue([boardDto()]);
-    mocks.getPositionsByBoard.mockResolvedValue([]);
-    mocks.getTasksByBoard.mockRejectedValue(new Error("tasks failed"));
+  it("取得に失敗したら reject する", async () => {
+    mocks.getMineBoards.mockRejectedValue(new Error("boards failed"));
 
-    await expect(loadBoards()).rejects.toThrow("tasks failed");
+    await expect(loadBoards()).rejects.toThrow("boards failed");
   });
 });
 
 describe("loadBoards（カテゴリー）", () => {
-  it("board ごとにカテゴリーを取得し、id / name / color に絞って載せる", async () => {
-    mocks.getMineBoards.mockResolvedValue([boardDto({ id: "board-1" })]);
-    mocks.getPositionsByBoard.mockResolvedValue([]);
-    mocks.getTasksByBoard.mockResolvedValue([]);
-    mocks.getCategoriesByBoard.mockResolvedValue([
-      {
-        id: "cat-1",
-        boardId: "board-1",
-        name: "仕事",
-        color: "#ff0000",
-        createdAt: "2026-01-01T00:00:00Z",
-      },
+  it("カテゴリーは id / name / color に絞って載せる", async () => {
+    mocks.getMineBoards.mockResolvedValue([
+      boardDetailDto({ id: "board-1" }, {
+        categories: [
+          {
+            id: "cat-1",
+            boardId: "board-1",
+            name: "仕事",
+            color: "#ff0000",
+            createdAt: "2026-01-01T00:00:00Z",
+          },
+        ],
+      }),
     ]);
 
     const [board] = await loadBoards();
 
-    expect(mocks.getCategoriesByBoard).toHaveBeenCalledWith("board-1");
     expect(board.categories).toEqual([
       { id: "cat-1", name: "仕事", color: "#ff0000" },
     ]);
   });
 
   it("role を BoardInfo に引き継ぐ", async () => {
-    mocks.getMineBoards.mockResolvedValue([boardDto({ role: "member" })]);
-    mocks.getPositionsByBoard.mockResolvedValue([]);
-    mocks.getTasksByBoard.mockResolvedValue([]);
+    mocks.getMineBoards.mockResolvedValue([boardDetailDto({ role: "member" })]);
 
     const [board] = await loadBoards();
 
@@ -304,9 +312,9 @@ describe("toCreateTaskRequest", () => {
 
 describe("DTO → UI → DTO の往復", () => {
   it("読み込んだタスクを更新ペイロードへ戻すと元の値に一致する", async () => {
-    mocks.getMineBoards.mockResolvedValue([boardDto()]);
-    mocks.getPositionsByBoard.mockResolvedValue([]);
-    mocks.getTasksByBoard.mockResolvedValue([taskDto()]);
+    mocks.getMineBoards.mockResolvedValue([
+      boardDetailDto({}, { tasks: [taskDto()] }),
+    ]);
 
     const [board] = await loadBoards();
     const req = toUpdateTaskRequest(tasksOf(board)[0]);

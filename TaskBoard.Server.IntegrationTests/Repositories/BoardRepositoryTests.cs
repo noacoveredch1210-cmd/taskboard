@@ -91,6 +91,102 @@ namespace TaskBoard.Server.IntegrationTests.Repositories
             Assert.True(await repository.DeleteAsync(boardId, Owner));
         }
 
+        // ---- まとめ取得（1 リクエストでボードと中身を返す） ----
+
+        [SkippableFact]
+        public async Task GetDetailsForUser_はボードの中身をまとめて返す()
+        {
+            RequireDocker();
+            using var connection = await Fixture.OpenConnectionAsync();
+            await SeedUserAsync(connection, Owner, "owner@example.com");
+            var boards = new BoardRepository(connection);
+            var positions = new PositionRepository(connection);
+            var categories = new CategoryRepository(connection);
+            var tasks = new TaskRepository(connection);
+
+            var boardId = Guid.NewGuid();
+            await boards.CreateAsync(NewBoard(boardId, Owner, "BD"));
+            var positionId = Guid.NewGuid();
+            await positions.CreateAsync(new CreatePositionRequest
+            { Id = positionId, BoardId = boardId, Name = "Todo", OrderIndex = 0 }, Owner);
+            await categories.CreateAsync(new CreateCategoryRequest
+            { Id = Guid.NewGuid(), BoardId = boardId, Name = "仕事", Color = "#ff0000" }, Owner);
+            var taskId = Guid.NewGuid();
+            await tasks.CreateAsync(new CreateTaskRequest
+            { Id = taskId, BoardId = boardId, PositionId = positionId, Name = "タスク" }, Owner);
+
+            var details = (await boards.GetDetailsForUserAsync(Owner)).ToList();
+
+            var detail = Assert.Single(details);
+            Assert.Equal("owner", detail.Role);
+            Assert.Equal(positionId, Assert.Single(detail.Positions).Id);
+            Assert.Equal(taskId, Assert.Single(detail.Tasks).Id);
+            Assert.Single(detail.Categories);
+            Assert.Equal(Owner, Assert.Single(detail.Members).UserId);
+        }
+
+        [SkippableFact]
+        public async Task GetDetailsForUser_は他人のboardの中身を混ぜない()
+        {
+            RequireDocker();
+            using var connection = await Fixture.OpenConnectionAsync();
+            await SeedUserAsync(connection, Owner, "owner@example.com");
+            await SeedUserAsync(connection, Stranger, "stranger@example.com");
+            var boards = new BoardRepository(connection);
+            var positions = new PositionRepository(connection);
+            var tasks = new TaskRepository(connection);
+
+            var mine = Guid.NewGuid();
+            var theirs = Guid.NewGuid();
+            await boards.CreateAsync(NewBoard(mine, Owner, "MINE"));
+            await boards.CreateAsync(NewBoard(theirs, Stranger, "THEIRS"));
+
+            var theirPosition = Guid.NewGuid();
+            await positions.CreateAsync(new CreatePositionRequest
+            { Id = theirPosition, BoardId = theirs, Name = "他人の列", OrderIndex = 0 }, Stranger);
+            await tasks.CreateAsync(new CreateTaskRequest
+            { Id = Guid.NewGuid(), BoardId = theirs, PositionId = theirPosition, Name = "他人のタスク" },
+                Stranger);
+
+            var details = (await boards.GetDetailsForUserAsync(Owner)).ToList();
+
+            var detail = Assert.Single(details);
+            Assert.Equal(mine, detail.Id);
+            Assert.Empty(detail.Positions);
+            Assert.Empty(detail.Tasks);
+            Assert.Single(detail.Members); // 自分だけ
+        }
+
+        [SkippableFact]
+        public async Task GetDetailsForUser_はゴミ箱のタスクを含めない()
+        {
+            RequireDocker();
+            using var connection = await Fixture.OpenConnectionAsync();
+            await SeedUserAsync(connection, Owner, "owner@example.com");
+            var boards = new BoardRepository(connection);
+            var positions = new PositionRepository(connection);
+            var tasks = new TaskRepository(connection);
+
+            var boardId = Guid.NewGuid();
+            await boards.CreateAsync(NewBoard(boardId, Owner, "BD"));
+            var positionId = Guid.NewGuid();
+            await positions.CreateAsync(new CreatePositionRequest
+            { Id = positionId, BoardId = boardId, Name = "Todo", OrderIndex = 0 }, Owner);
+
+            var kept = Guid.NewGuid();
+            var trashed = Guid.NewGuid();
+            foreach (var id in new[] { kept, trashed })
+            {
+                await tasks.CreateAsync(new CreateTaskRequest
+                { Id = id, BoardId = boardId, PositionId = positionId, Name = "タスク" }, Owner);
+            }
+            await tasks.DeleteAsync(trashed, Owner);
+
+            var detail = Assert.Single(await boards.GetDetailsForUserAsync(Owner));
+
+            Assert.Equal(kept, Assert.Single(detail.Tasks).Id);
+        }
+
         // ---- 列の編集（1 リクエストで追加・改名・並べ替え・削除をまとめて適用する） ----
 
         [SkippableFact]

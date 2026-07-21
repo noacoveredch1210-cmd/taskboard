@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   loadBoards,
   toCreateTaskRequest,
@@ -16,6 +16,12 @@ import type { Position } from "../types/position";
 import type { Category } from "../types/category";
 
 /**
+ * 画面へ戻ってきたときの再取得を、これ以上の頻度では行わない下限。
+ * タブを往復するたびに取りに行くと、本来の操作の分までレート制限を食い合うため。
+ */
+const REFETCH_MIN_INTERVAL_MS = 15_000;
+
+/**
  * board / task / position の状態管理と API 連携をまとめたフック。
  * すべてオプティミスティック更新（即 state 反映 → API 送信 → 失敗したら巻き戻す）。
  */
@@ -26,16 +32,74 @@ export const useBoards = () => {
   // 初回取得に失敗したか（true のときは呼び出し側でエラー画面を出す）
   const [error, setError] = useState(false);
   const { showToast } = useToast();
+  // 最後に一覧を取り直し終えた時刻（再取得の間隔を空けるため）。
+  const lastLoadedAt = useRef(0);
 
-  // マウント時に API から board 一覧を取得する
-  useEffect(() => {
+  // 取得が進行中か。重複は「時間の間隔」だけでは防げない。前の取得が終わる前に
+  // もう一度呼ばれると、最終取得時刻はまだ更新されておらず判定を素通りするため。
+  const isLoading = useRef(false);
+
+  /**
+   * board 一覧を取り直す。
+   *
+   * @param isInitial 初回ロード（間隔を無視し、失敗したらエラー画面を出す）
+   */
+  const reload = (isInitial: boolean) => {
+    // 取得中なら何もしない。StrictMode が effect を 2 回走らせても、
+    // 本番でイベントが重なっても、ここで 1 本に絞られる。
+    if (isLoading.current) return;
+    if (!isInitial && Date.now() - lastLoadedAt.current < REFETCH_MIN_INTERVAL_MS) {
+      return;
+    }
+    isLoading.current = true;
+
     loadBoards()
       .then(setBoards)
       .catch((e) => {
-        setError(true);
-        reportError("boardの取得に失敗しました")(e);
+        // 背景の更新が失敗しても画面は壊さない（古いまま表示を続ける）。
+        if (isInitial) setError(true);
+        reportError(
+          isInitial
+            ? "boardの取得に失敗しました"
+            : "最新の状態を取得できませんでした",
+        )(e);
       })
-      .finally(() => setLoaded(true));
+      .finally(() => {
+        isLoading.current = false;
+        lastLoadedAt.current = Date.now();
+        if (isInitial) setLoaded(true);
+      });
+  };
+
+  // マウント時に API から board 一覧を取得する
+  useEffect(() => {
+    reload(true);
+    // 初回のみ。
+  }, []);
+
+  /**
+   * 画面へ戻ってきたら board 一覧を取り直す。
+   *
+   * 共有ボードはリアルタイム同期をしていないので、開きっぱなしの画面は他の人の変更を
+   * 知らないまま古くなる。そのまま操作すると、古い内容でサーバーを上書きしてしまう。
+   * 人はタブを行き来するので、戻ってきた時に取り直すだけで実用上の陳腐化はほぼ消える。
+   *
+   * 失敗しても画面には出さない。これは利用者が頼んだ操作ではなく背景の更新なので、
+   * 取れなければ古いまま表示を続ける方が邪魔にならない（次の操作の失敗で通知される）。
+   */
+  useEffect(() => {
+    const refetch = () => {
+      if (document.visibilityState !== "visible") return;
+      reload(false);
+    };
+
+    // focus はウィンドウの切り替え、visibilitychange はタブの切り替えを拾う。
+    window.addEventListener("focus", refetch);
+    document.addEventListener("visibilitychange", refetch);
+    return () => {
+      window.removeEventListener("focus", refetch);
+      document.removeEventListener("visibilitychange", refetch);
+    };
   }, []);
 
   /**
@@ -56,6 +120,8 @@ export const useBoards = () => {
     (message: string, snapshot: BoardInfo[]) => (err: unknown) => {
       reportError(message)(err);
       showToast(message);
+      // ここでも取り直しているので、直後のフォーカスで二重に取りに行かないよう時刻を進める。
+      lastLoadedAt.current = Date.now();
       loadBoards()
         .then(setBoards)
         .catch((refetchError) => {

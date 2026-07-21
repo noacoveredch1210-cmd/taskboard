@@ -160,7 +160,19 @@ export const stubApi = async (
       if (path === "/users/me") {
         return json(route, { name: TEST_USER.name, email: TEST_USER.email });
       }
-      if (path === "/boards") return json(route, state.boards);
+      if (path === "/boards") {
+        // 実サーバーと同じく、中身（列・タスク・カテゴリー・メンバー）ごと返す。
+        return json(
+          route,
+          state.boards.map((board) => ({
+            ...board,
+            positions: state.positions.filter((p) => p.boardId === board.id),
+            tasks: state.tasks.filter((t) => t.boardId === board.id),
+            categories: state.categories,
+            members: state.members,
+          })),
+        );
+      }
       if (/^\/boards\/[^/]+\/members$/.test(path)) {
         return json(route, state.members);
       }

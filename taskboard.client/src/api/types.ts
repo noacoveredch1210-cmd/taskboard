@@ -18,6 +18,17 @@ export type BoardDto = {
   createdAt: string;
 };
 
+/**
+ * 一覧（GET /boards）が返す、中身を含んだ board。
+ * 画面はどのみち全部使うので、1 リクエストでまとめて受け取る。
+ */
+export type BoardDetailDto = Omit<BoardDto, "userId"> & {
+  positions: PositionDto[];
+  tasks: TaskDto[];
+  categories: CategoryDto[];
+  members: BoardMemberDto[];
+};
+
 export type BoardMemberDto = {
   userId: string;
   name: string;

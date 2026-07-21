@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 
 // useBoards は API モジュールを直接呼ぶため、それぞれを差し替える。
@@ -763,5 +763,88 @@ describe("削除", () => {
       "boardの削除に失敗しました",
       failure,
     );
+  });
+});
+
+// 共有ボードはリアルタイム同期をしていないので、開きっぱなしの画面は古くなる。
+// 画面へ戻ってきたときに取り直して、その陳腐化を実用上の範囲に抑える。
+describe("画面へ戻ってきたときの再取得", () => {
+  // 時刻を進めて「間隔が空いた」ことにするので、テストごとに実時計へ戻す。
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** ウィンドウにフォーカスが戻ったことにする。 */
+  const focus = async () => {
+    await act(async () => {
+      window.dispatchEvent(new Event("focus"));
+    });
+  };
+
+  it("フォーカスが戻ったら board 一覧を取り直す", async () => {
+    const { result } = await renderLoaded();
+    expect(mocks.loadBoards).toHaveBeenCalledTimes(1); // 初回ロード分
+
+    vi.setSystemTime(Date.now() + 60_000);
+    mocks.loadBoards.mockResolvedValue([board({ title: "他の人が変えた" })]);
+    await focus();
+
+    expect(mocks.loadBoards).toHaveBeenCalledTimes(2);
+    await waitFor(() =>
+      expect(result.current.boards[0].title).toBe("他の人が変えた"),
+    );
+  });
+
+  // loadBoards は board ごとに 4 本のリクエストを投げるので、往復のたびに取りに行くと
+  // レート制限（100 回/分）に自分で当たる。
+  it("短い間隔で戻ってきても取り直さない", async () => {
+    await renderLoaded();
+    expect(mocks.loadBoards).toHaveBeenCalledTimes(1);
+
+    vi.setSystemTime(Date.now() + 1_000);
+    await focus();
+    await focus();
+    await focus();
+
+    expect(mocks.loadBoards).toHaveBeenCalledTimes(1); // 増えない
+  });
+
+  it("画面が見えていなければ取り直さない", async () => {
+    await renderLoaded();
+    Object.defineProperty(document, "visibilityState", {
+      value: "hidden",
+      configurable: true,
+    });
+
+    vi.setSystemTime(Date.now() + 60_000);
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    expect(mocks.loadBoards).toHaveBeenCalledTimes(1);
+
+    Object.defineProperty(document, "visibilityState", {
+      value: "visible",
+      configurable: true,
+    });
+  });
+
+  // 利用者が頼んだ操作ではないので、失敗しても画面は壊さない（古いまま表示を続ける）。
+  it("取り直しに失敗しても、表示は保ちエラー画面にしない", async () => {
+    const { result } = await renderLoaded([board({ title: "元のまま" })]);
+
+    vi.setSystemTime(Date.now() + 60_000);
+    mocks.loadBoards.mockRejectedValue(new Error("offline"));
+    await focus();
+
+    await waitFor(() =>
+      expect(mocks.reportError).toHaveBeenCalledWith(
+        "最新の状態を取得できませんでした",
+        expect.anything(),
+      ),
+    );
+    expect(result.current.error).toBe(false);
+    expect(result.current.boards[0].title).toBe("元のまま");
+    expect(mocks.showToast).not.toHaveBeenCalled();
   });
 });

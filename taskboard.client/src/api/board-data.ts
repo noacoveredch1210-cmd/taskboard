@@ -4,8 +4,6 @@
 import { usersApi } from "./users";
 import { boardsApi } from "./boards";
 import { tasksApi } from "./tasks";
-import { categoriesApi } from "./categories";
-import { positionsApi } from "./positions";
 import type {
   BoardDto,
   TaskDto,
@@ -25,22 +23,23 @@ import type { Position } from "../types/position";
 import type { Member } from "../types/member";
 
 /**
- * 指定ユーザーの board 一覧を取得し、UI 用のネスト構造へ組み立てる。
- * board ごとに positions / tasks を並列取得する。
+ * board 一覧を中身（列・タスク・カテゴリー・メンバー）ごと取得し、UI 用の構造へ組み立てる。
+ *
+ * リクエストは 1 本。以前は board ごとに 4 本の追加リクエストを投げていたため、
+ * board N 枚で 1+4N 本になり、起動が遅いうえに画面へ戻るたびの再取得だけで
+ * レート制限（100 回/分）を使い切ってしまった。
  */
 export const loadBoards = async (): Promise<BoardInfo[]> => {
-  const boardDtos = await boardsApi.getMine();
+  const boards = await boardsApi.getMine();
 
-  return Promise.all(
-    boardDtos.map(async (board) => {
-      const [positions, tasks, categories, members] = await Promise.all([
-        positionsApi.getByBoard(board.id),
-        tasksApi.getByBoard(board.id),
-        categoriesApi.getByBoard(board.id),
-        boardsApi.getMembers(board.id),
-      ]);
-      return toBoardInfo(board, positions, tasks, categories, members);
-    }),
+  return boards.map((board) =>
+    toBoardInfo(
+      board,
+      board.positions ?? [],
+      board.tasks ?? [],
+      board.categories ?? [],
+      board.members ?? [],
+    ),
   );
 };
 
@@ -75,7 +74,8 @@ const toMember = (dto: BoardMemberDto): Member => {
 };
 
 const toBoardInfo = (
-  board: BoardDto,
+  // 一覧が返すのは userId を含まない形。ここで使うのはこの 4 つだけ。
+  board: Pick<BoardDto, "id" | "shortName" | "title" | "role">,
   positions: PositionDto[],
   tasks: TaskDto[],
   categories: CategoryDto[],

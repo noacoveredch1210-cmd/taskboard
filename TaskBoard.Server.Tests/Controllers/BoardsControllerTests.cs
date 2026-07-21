@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using NSubstitute;
 using TaskBoard.Server.Controllers;
 using TaskBoard.Server.Data;
@@ -18,8 +18,9 @@ namespace TaskBoard.Server.Tests.Controllers
         [Fact]
         public async Task GetMine_ReturnsBoardsOfAuthenticatedUser()
         {
-            var boards = new[] { new Board { Id = Guid.NewGuid(), UserId = _userId } };
-            _repository.GetForUserAsync(_userId).Returns(boards);
+            // 一覧は中身（列・タスク等）ごと返す。
+            var boards = new[] { new BoardDetail { Id = Guid.NewGuid() } };
+            _repository.GetDetailsForUserAsync(_userId).Returns(boards);
 
             var result = await CreateController().GetMine();
 
@@ -30,12 +31,12 @@ namespace TaskBoard.Server.Tests.Controllers
         [Fact]
         public async Task GetMine_DoesNotLeakOtherUsersBoards()
         {
-            _repository.GetForUserAsync(Arg.Any<Guid>()).Returns([]);
+            _repository.GetDetailsForUserAsync(Arg.Any<Guid>()).Returns([]);
 
             await CreateController().GetMine();
 
             // 一覧取得は必ずトークンのユーザー ID で問い合わせる。
-            await _repository.Received(1).GetForUserAsync(_userId);
+            await _repository.Received(1).GetDetailsForUserAsync(_userId);
         }
 
         [Fact]

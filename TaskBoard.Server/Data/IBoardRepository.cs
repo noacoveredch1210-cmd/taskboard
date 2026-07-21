@@ -21,6 +21,11 @@ namespace TaskBoard.Server.Data
     {
         /// <summary>ユーザーが参加している board 一覧（自分の役割付き）。</summary>
         Task<IEnumerable<Board>> GetForUserAsync(Guid userId);
+        /// <summary>
+        /// 参加している全ボードを中身（列・タスク・カテゴリー・メンバー）ごと返す。
+        /// 画面はどのみち全部使うので、1 リクエストで返してクライアントの N+1 を無くす。
+        /// </summary>
+        Task<IEnumerable<BoardDetail>> GetDetailsForUserAsync(Guid userId);
         Task<Board?> GetByIdAsync(Guid id, Guid userId);
         /// <summary>board を作成し、作成者を owner としてメンバー登録する。</summary>
         Task CreateAsync(CreateBoardRequest request);

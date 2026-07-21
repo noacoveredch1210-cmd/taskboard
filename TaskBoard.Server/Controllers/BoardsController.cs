@@ -18,7 +18,9 @@ namespace TaskBoard.Server.Controllers
         [HttpGet]
         public async Task<IActionResult> GetMine()
         {
-            var boards = await _repository.GetForUserAsync(CurrentUserId);
+            // 中身ごと返す。画面はボードを開いた瞬間に列もタスクも使うので、
+            // 分けて返すとクライアントがボードごとに追加リクエストを投げることになる。
+            var boards = await _repository.GetDetailsForUserAsync(CurrentUserId);
             return Ok(boards);
         }
 

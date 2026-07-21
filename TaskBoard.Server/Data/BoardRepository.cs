@@ -8,6 +8,96 @@ namespace TaskBoard.Server.Data
     {
         public BoardRepository(IDbConnection connection) : base(connection) { }
 
+        /// <summary>
+        /// 参加している全ボードを、中身（列・タスク・カテゴリー・メンバー）ごと返す。
+        ///
+        /// ボードごとにクエリを回すと N+1 になるので、種類ごとに 1 本ずつ引いてから
+        /// メモリ上で振り分ける。ボードが何枚でもクエリは 5 本で一定。
+        ///
+        /// 各クエリは「自分が参加しているボードのものか」を EXISTS で自分自身に課している。
+        /// 先に取った board の id で絞れば同じ結果になるが、それは「アプリ側で絞った」だけで、
+        /// クエリ単体では無防備になる。この方針（所有権を SQL に埋める）は崩さない。
+        /// </summary>
+        public async Task<IEnumerable<BoardDetail>> GetDetailsForUserAsync(Guid userId)
+        {
+            var boards = (await GetForUserAsync(userId)).ToList();
+            if (boards.Count == 0) return [];
+
+            const string memberOfBoard =
+                "EXISTS (SELECT 1 FROM board_members m WHERE m.board_id = {0}.board_id AND m.user_id = @UserId)";
+            var parameters = new { UserId = userId };
+
+            var positions = await Connection.QueryAsync<Position>($"""
+                SELECT id, board_id AS BoardId, name, order_index AS OrderIndex, created_at AS CreatedAt
+                FROM positions p
+                WHERE {string.Format(memberOfBoard, "p")}
+                ORDER BY order_index
+                """, parameters);
+
+            // ゴミ箱（deleted_at 非 NULL）は通常の一覧に混ぜない。
+            var tasks = await Connection.QueryAsync<TaskItem>($"""
+                SELECT id, board_id AS BoardId, position_id AS PositionId, category_id AS CategoryId,
+                       assignee_id AS AssigneeId, name, comment, importance, deadline,
+                       order_index AS OrderIndex, created_at AS CreatedAt
+                FROM tasks t
+                WHERE t.deleted_at IS NULL AND {string.Format(memberOfBoard, "t")}
+                ORDER BY order_index
+                """, parameters);
+
+            var categories = await Connection.QueryAsync<Category>($"""
+                SELECT id, board_id AS BoardId, name, color, created_at AS CreatedAt
+                FROM categories c
+                WHERE {string.Format(memberOfBoard, "c")}
+                ORDER BY created_at
+                """, parameters);
+
+            // メンバー一覧だけは述語の書き方が違う。board_members 自身に
+            // 「その board のメンバーか」を課すと、行そのものがメンバー行なので常に真になり、
+            // 全ユーザーのメンバー行を取ってしまう。「自分も同じ board に居るか」を別名で問う。
+            var members = await Connection.QueryAsync<BoardMemberRow>("""
+                SELECT m.board_id AS BoardId, u.id AS UserId, u.name, u.email, m.role
+                FROM board_members m
+                JOIN users u ON u.id = m.user_id
+                WHERE EXISTS (SELECT 1 FROM board_members me
+                              WHERE me.board_id = m.board_id AND me.user_id = @UserId)
+                ORDER BY m.created_at
+                """, parameters);
+
+            // 振り分けは Dictionary で行う。ToLookup だと、述語をすり抜けた行があっても
+            // どのボードにも属さないまま黙って捨てられ、SQL 側の絞り込みが壊れていても
+            // 誰も気づけない。ここでは「取ってきた行はすべて、どれかのボードに属する」ことを
+            // 明示的に確かめ、そうでなければ落とす。
+            var details = boards.ToDictionary(board => board.Id, board => new BoardDetail
+            {
+                Id = board.Id,
+                ShortName = board.ShortName,
+                Title = board.Title,
+                Role = board.Role,
+                CreatedAt = board.CreatedAt,
+            });
+
+            /// <summary>行を所属ボードへ配る。属先が無い＝クエリの所有権条件が壊れている。</summary>
+            void Distribute<T>(IEnumerable<T> rows, Func<T, Guid> boardIdOf, Action<BoardDetail, T> add)
+            {
+                foreach (var row in rows)
+                {
+                    if (!details.TryGetValue(boardIdOf(row), out var detail))
+                    {
+                        throw new InvalidOperationException(
+                            $"参加していない board の {typeof(T).Name} を取得しました。");
+                    }
+                    add(detail, row);
+                }
+            }
+
+            Distribute(positions, p => p.BoardId, (d, row) => d.Positions.Add(row));
+            Distribute(tasks, t => t.BoardId, (d, row) => d.Tasks.Add(row));
+            Distribute(categories, c => c.BoardId, (d, row) => d.Categories.Add(row));
+            Distribute(members, m => m.BoardId, (d, row) => d.Members.Add(row));
+
+            return boards.Select(board => details[board.Id]);
+        }
+
         public async Task<IEnumerable<Board>> GetForUserAsync(Guid userId)
         {
             // 参加しているボードだけを、自分の役割付きで返す。

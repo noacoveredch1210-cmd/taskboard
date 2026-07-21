@@ -2,6 +2,7 @@ import { api } from "./client";
 import { createResource } from "./resource";
 import type {
   BoardDto,
+  BoardDetailDto,
   BoardMemberDto,
   CreateBoardRequest,
   UpdateBoardRequest,
@@ -11,7 +12,7 @@ export const boardsApi = {
   ...createResource<BoardDto, CreateBoardRequest, UpdateBoardRequest>("/boards"),
 
   /** 認証ユーザーが参加している board 一覧。 */
-  getMine: () => api.get<BoardDto[]>("/boards"),
+  getMine: () => api.get<BoardDetailDto[]>("/boards"),
 
   /** 共有トークンを取得（オーナーのみ）。 */
   getShareToken: (boardId: string) =>
