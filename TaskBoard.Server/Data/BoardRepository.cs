@@ -122,20 +122,49 @@ namespace TaskBoard.Server.Data
             return await Connection.QuerySingleOrDefaultAsync<Board>(sql, new { Id = id, UserId = userId });
         }
 
+        /// <summary>
+        /// ボードを作る。本体・作成者のオーナー登録・最初の列を 1 トランザクションで行う。
+        ///
+        /// 分けて書くと途中で失敗したときに中途半端なものが残る。オーナー登録が抜ければ
+        /// 誰も入れないボード、列の作成が抜ければ列が足りないボードができ、
+        /// どちらも利用者からは直しようがない。
+        /// </summary>
         public async Task CreateAsync(CreateBoardRequest request)
         {
-            // board を作り、作成者を owner としてメンバー登録する。
+            if (Connection.State != ConnectionState.Open) Connection.Open();
+            using var transaction = Connection.BeginTransaction();
+
             const string insertBoard = """
             INSERT INTO boards (id, user_id, short_name, title)
             VALUES (@Id, @UserId, @ShortName, @Title)
             """;
-            await Connection.ExecuteAsync(insertBoard, request);
+            await Connection.ExecuteAsync(insertBoard, request, transaction);
 
             const string insertOwner = """
             INSERT INTO board_members (board_id, user_id, role)
             VALUES (@BoardId, @UserId, 'owner')
             """;
-            await Connection.ExecuteAsync(insertOwner, new { BoardId = request.Id, request.UserId });
+            await Connection.ExecuteAsync(
+                insertOwner, new { BoardId = request.Id, request.UserId }, transaction);
+
+            // 最初の列。配列の位置がそのまま order_index になる。
+            const string insertPosition = """
+            INSERT INTO positions (id, board_id, name, order_index)
+            VALUES (@Id, @BoardId, @Name, @OrderIndex)
+            """;
+            var positions = request.Positions ?? [];
+            for (var i = 0; i < positions.Count; i++)
+            {
+                await Connection.ExecuteAsync(insertPosition, new
+                {
+                    positions[i].Id,
+                    BoardId = request.Id,
+                    positions[i].Name,
+                    OrderIndex = (double)i
+                }, transaction);
+            }
+
+            transaction.Commit();
         }
 
         /// <summary>

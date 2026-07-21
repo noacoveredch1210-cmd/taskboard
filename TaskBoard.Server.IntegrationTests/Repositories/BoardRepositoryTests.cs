@@ -91,6 +91,65 @@ namespace TaskBoard.Server.IntegrationTests.Repositories
             Assert.True(await repository.DeleteAsync(boardId, Owner));
         }
 
+        [SkippableFact]
+        public async Task Create_はボードとオーナー登録と最初の列を一度に作る()
+        {
+            RequireDocker();
+            using var connection = await Fixture.OpenConnectionAsync();
+            await SeedUserAsync(connection, Owner, "owner@example.com");
+            var repository = new BoardRepository(connection);
+
+            var boardId = Guid.NewGuid();
+            var (todo, done) = (Guid.NewGuid(), Guid.NewGuid());
+            var request = NewBoard(boardId, Owner, "BD");
+            request.Positions =
+            [
+                new BoardPositionRequest { Id = todo, Name = "Todo" },
+                new BoardPositionRequest { Id = done, Name = "Done" },
+            ];
+
+            await repository.CreateAsync(request);
+
+            // 作成者は owner として参加している。
+            var board = await repository.GetByIdAsync(boardId, Owner);
+            Assert.NotNull(board);
+            Assert.Equal("owner", board!.Role);
+
+            // 列も配列順で作られている。
+            var positions = (await new PositionRepository(connection)
+                .GetByBoardIdAsync(boardId, Owner)).ToList();
+            Assert.Equal([todo, done], positions.Select(p => p.Id));
+        }
+
+        /// <summary>
+        /// 列の作成が失敗したら、ボードごと無かったことになる。
+        /// 途中まで作られると「列が足りないボード」が残り、利用者からは直せない。
+        /// </summary>
+        [SkippableFact]
+        public async Task Create_は列の作成に失敗したらボードごと作らない()
+        {
+            RequireDocker();
+            using var connection = await Fixture.OpenConnectionAsync();
+            await SeedUserAsync(connection, Owner, "owner@example.com");
+            var repository = new BoardRepository(connection);
+
+            var boardId = Guid.NewGuid();
+            var duplicated = Guid.NewGuid();
+            var request = NewBoard(boardId, Owner, "BD");
+            // 同じ id の列を 2 つ送る → 2 つ目の INSERT が主キー違反で落ちる。
+            request.Positions =
+            [
+                new BoardPositionRequest { Id = duplicated, Name = "Todo" },
+                new BoardPositionRequest { Id = duplicated, Name = "Done" },
+            ];
+
+            await Assert.ThrowsAnyAsync<Exception>(() => repository.CreateAsync(request));
+
+            // ボードも、オーナー登録も、最初の列も残っていない。
+            Assert.Null(await repository.GetByIdAsync(boardId, Owner));
+            Assert.Empty(await repository.GetForUserAsync(Owner));
+        }
+
         // ---- まとめ取得（1 リクエストでボードと中身を返す） ----
 
         [SkippableFact]

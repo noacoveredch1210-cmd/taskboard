@@ -593,7 +593,9 @@ describe("reorderTasks", () => {
 });
 
 describe("createBoard", () => {
-  it("board を作成してから position 群を作成する", async () => {
+  // ボード本体・オーナー登録・最初の列は、サーバーが 1 トランザクションで作る。
+  // 分けて投げると、ボードだけできて列が揃わない状態が残りうる。
+  it("列も含めて 1 リクエストで作成する（配列順がそのまま表示順）", async () => {
     const { result } = await renderLoaded([]);
     const positions = [
       { id: "p1", name: "未着手" },
@@ -608,20 +610,20 @@ describe("createBoard", () => {
     expect(mocks.createBoard.mock.calls[0][0]).toMatchObject({
       title: "新ボード",
       shortName: "NB",
+      positions: [
+        { id: "p1", name: "未着手" },
+        { id: "p2", name: "完了" },
+      ],
     });
 
-    // position は表示順を orderIndex に落として作成される。
-    expect(mocks.createPosition).toHaveBeenCalledTimes(2);
-    expect(mocks.createPosition.mock.calls.map(([r]) => r)).toEqual([
-      expect.objectContaining({ id: "p1", orderIndex: 0 }),
-      expect.objectContaining({ id: "p2", orderIndex: 1 }),
-    ]);
+    // 列へ個別のリクエストは投げない。
+    expect(mocks.createPosition).not.toHaveBeenCalled();
 
     expect(result.current.boards).toHaveLength(1);
     expect(result.current.boards[0].title).toBe("新ボード");
   });
 
-  it("board の作成に失敗したら position を作成しない", async () => {
+  it("作成に失敗したら通知し、列も作らない", async () => {
     const failure = new Error("boom");
     mocks.createBoard.mockRejectedValue(failure);
     const { result } = await renderLoaded([]);
@@ -635,6 +637,7 @@ describe("createBoard", () => {
       "boardの作成に失敗しました",
       failure,
     );
+    expect(result.current.boards).toHaveLength(0); // 再取得で消える
   });
 });
 

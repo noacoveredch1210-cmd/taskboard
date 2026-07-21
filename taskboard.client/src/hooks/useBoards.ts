@@ -6,7 +6,6 @@ import {
 } from "../api/board-data";
 import { tasksApi } from "../api/tasks";
 import { boardsApi } from "../api/boards";
-import { positionsApi } from "../api/positions";
 import { categoriesApi } from "../api/categories";
 import { reportError } from "./reportError";
 import { useToast } from "../components/toast/ToastContext";
@@ -222,20 +221,15 @@ export const useBoards = () => {
       { id: boardId, shortName, title, role: "owner", positions, categories: [], tasks: [] },
     ]);
 
+    // 列もまとめて 1 リクエストで作る。分けて投げると、ボードだけできて列が
+    // 揃わない状態がサーバーに残りうる（利用者からは直しようがない）。
     boardsApi
-      .create({ id: boardId, shortName, title })
-      .then(() =>
-        Promise.all(
-          positions.map((p, index) =>
-            positionsApi.create({
-              id: p.id,
-              boardId,
-              name: p.name,
-              orderIndex: index,
-            }),
-          ),
-        ),
-      )
+      .create({
+        id: boardId,
+        shortName,
+        title,
+        positions: positions.map((p) => ({ id: p.id, name: p.name })),
+      })
       .catch(handleFailure("boardの作成に失敗しました", boards));
   };
 

@@ -84,6 +84,8 @@ export type CreateBoardRequest = {
   id: string;
   shortName: string;
   title: string;
+  /** 最初の列（配列順がそのまま表示順）。ボード本体と同じトランザクションで作られる。 */
+  positions?: { id: string; name: string }[];
 };
 export type UpdateBoardRequest = {
   shortName: string;

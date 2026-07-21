@@ -11,6 +11,11 @@ namespace TaskBoard.Server.Models
         public string ShortName { get; set; } = string.Empty;
         [MaxLength(TextLimits.BoardTitle)]
         public string Title { get; set; } = string.Empty;
+        /// <summary>
+        /// 最初の列（配列順がそのまま表示順）。ボード本体・オーナー登録と同じ
+        /// トランザクションで作る。省略すると列の無いボードになる。
+        /// </summary>
+        public List<BoardPositionRequest>? Positions { get; set; }
     }
 
     public class UpdateBoardRequest
